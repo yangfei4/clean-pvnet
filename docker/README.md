@@ -26,8 +26,13 @@ distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
       sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 ```
 
-run it with:
+build a docker container and mount it with your local folder:
+```bash
+#please updata path to local folder
+docker run -it --name pvnet --gpus all -v /path/to/clean-pvnet:$PWD:/pvnet pvnet_clean 
+```
 
 ```bash
-docker run --gpus all -it pvnet_clean bash
+docker start pvnet && docker exec -it pvnet bash
+cd pvnet
 ```
