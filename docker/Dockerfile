@@ -1,5 +1,5 @@
-FROM nvidia/cuda:9.0-devel-ubuntu16.04
-
+# FROM nvidia/cuda:9.0-devel-ubuntu16.04
+FROM nvidia/cuda:11.1.1-devel-ubuntu18.04
 # Hack to not have tzdata cmdline config during build
 RUN ln -fs /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
@@ -43,9 +43,9 @@ RUN echo 'eval "$(pyenv init --path)"' >> ~/.bashrc \
     && echo 'export PATH="/root/.pyenv/bin:$PATH"' >> ~/.bashrc \
     && echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 
-# Install Python 3.7.7
-RUN pyenv install 3.7.7 \
-    && pyenv global 3.7.7
+# Install Python 3.7.12
+RUN pyenv install 3.7.12 \
+    && pyenv global 3.7.12
 
 # Verify Python installation
 RUN python --version
@@ -87,10 +87,12 @@ RUN cd /opt && \
     conda create -n pvnet python=3.7 && \
     . /opt/conda/etc/profile.d/conda.sh && \
     conda activate pvnet && \
-    pip install --user torch==1.1.0 -f https://download.pytorch.org/whl/cu90/stable && \
+    pip install torch==1.10.1+cu111 torchvision==0.11.2+cu111 torchaudio==0.10.1 -f https://download.pytorch.org/whl/cu111/torch_stable.html && \
+    # pip install --user torch==1.1.0 -f https://download.pytorch.org/whl/cu90/stable && \
     pip install Cython==0.28.2 && \
     pip install -r requirements.txt && \
     pip install --user transforms3d && \
+    conda install pillow=8.1.0 && \
     cd .. && \
     rm -rf pvnet
 
