@@ -6,6 +6,7 @@ heads: ''
 task: 'pvnet'
 gpus: (0, 1, 2, 3)
 resume: true
+skip_eval: false
 
 train:
     optim: 'adam'
@@ -23,5 +24,5 @@ train:
     batch_sampler: 'image_size'
 test:
     dataset: 'CustomTest'
-    batch_size: 1
+    batch_size: 2
     batch_sampler: 'image_size'
