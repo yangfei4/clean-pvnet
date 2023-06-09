@@ -111,18 +111,6 @@ Take the testing on `cat` as an example.
     python run.py --type evaluate --cfg_file configs/linemod.yaml test.dataset LinemodOccTest model cat cls_type cat test.un_pnp True
     ```
 
-### Testing on Tless
-
-We provide the pretrained models of objects on Tless, which can be found at [here](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/EjoUiAwfPOhGgFGPnJANDqoBLxnUAc7DO77voz6-KVp5Wg?e=6UGB3p).
-
-1. Download the pretrained models and put them to `$ROOT/data/model/pvnet/`.
-2. Test:
-    ```
-    python run.py --type evaluate --cfg_file configs/tless/tless_01.yaml
-    # or
-    python run.py --type evaluate --cfg_file configs/tless/tless_01.yaml test.vsd True
-    ```
-
 ## Visualization
 
 ### Demo
@@ -157,51 +145,9 @@ If setup correctly, the output will look like
    python run.py --type detector_pvnet --cfg_file configs/ct_linemod.yaml
    ```
 
-### Visualization on Tless
-
-Visualize:
-```
-python run.py --type visualize --cfg_file configs/tless/tless_01.yaml
-# or
-python run.py --type visualize --cfg_file configs/tless/tless_01.yaml test.det_gt True
-```
-
-## Training
-
-### Training on Linemod
-
-1. Prepare the data related to `cat`:
-    ```
-    python run.py --type linemod cls_type cat
-    ```
-2. Train:
-    ```
-    python train_net.py --cfg_file configs/linemod.yaml model mycat cls_type cat
-    ```
-
-The training parameters can be found in [project_structure.md](project_structure.md).
-
-### Training on Tless
-
-Train:
-```
-python train_net.py --cfg_file configs/tless/tless_01.yaml
-```
-
-### Tensorboard
-
-```
-tensorboard --logdir data/record/pvnet
-```
-
-If setup correctly, the output will look like
-
-![tensorboard](./assets/tensorboard.png)
-
-
 ## Training on the custom object
 
-An example dataset can be downloaded at [here](https://zjueducn-my.sharepoint.com/:u:/g/personal/pengsida_zju_edu_cn/Ec6Hd9j7z4lCiwDhqIwDcScBGPw2rsbn6FJh1C2FwbPJTw?e=xcKGAw).
+The training parameters can be found in [project_structure.md](project_structure.md).
 
 1. Create a dataset using https://github.com/F2Wang/ObjectDatasetTools
 2. Organize the dataset as the following structure:
@@ -231,23 +177,27 @@ An example dataset can be downloaded at [here](https://zjueducn-my.sharepoint.co
     ```
     ln -s /path/to/custom_dataset data/custom
     ```
-3. Process the dataset:
+3. Process the dataset, this will create `train.json` and `fps.txt`:
     ```
     python run.py --type custom
     ```
-4. Train:
+4. Visualize Pose Ground Truth
+    ```
+    python run.py --type visualize_gt --cfg_file configs/custom.yaml
+    ```
+5. Train:
     ```
     python train_net.py --cfg_file configs/custom.yaml train.batch_size 4
     ```
-5. Watch the training curve:
+6. Watch the training curve:
     ```
     tensorboard --logdir data/record/pvnet
     ```
-6. Visualize:
+7. Visualize:
     ```
     python run.py --type visualize --cfg_file configs/custom.yaml
     ```
-7. Test:
+8. Test:
     ```
     python run.py --type evaluate --cfg_file configs/custom.yaml
     ```
