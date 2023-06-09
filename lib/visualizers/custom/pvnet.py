@@ -62,7 +62,24 @@ class Visualizer:
         plt.savefig('test.jpg')
         plt.close(0)
 
+    def visualize_gt(self, batch):
+        inp = img_utils.unnormalize_img(batch['inp'][0], mean, std).permute(1, 2, 0)
 
+        img_id = int(batch['img_id'][0])
+        anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
+        # kpt_3d = np.concatenate([anno['fps_3d'], [anno['center_3d']]], axis=0)
+        K = np.array(anno['K'])
+
+        pose_gt = np.array(anno['pose'])
+
+        corner_3d = np.array(anno['corner_3d'])
+        corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
+
+        _, ax = plt.subplots(1)
+        ax.imshow(inp)
+        ax.add_patch(patches.Polygon(xy=corner_2d_gt[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='g'))
+        ax.add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
+        plt.show()
 
 
 
