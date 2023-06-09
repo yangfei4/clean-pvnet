@@ -1,7 +1,8 @@
 from lib.config import cfg, args
 import numpy as np
 import os
-
+# import matplotlib
+# matplotlib.use('Agg')
 
 def run_rgb():
     import glob
@@ -79,6 +80,20 @@ def run_evaluate():
         evaluator.evaluate(output, batch)
     evaluator.summarize()
 
+def run_visualize_gt():
+    import torch
+    import tqdm
+
+    from lib.config import cfg
+    from lib.datasets import make_data_loader
+    from lib.visualizers import make_visualizer
+    data_loader = make_data_loader(cfg, is_train=False)
+    visualizer = make_visualizer(cfg)
+    for batch in tqdm.tqdm(data_loader):
+        for k in batch:
+            if k != 'meta':
+                batch[k] = batch[k].cuda()
+        visualizer.visualize_gt(batch)
 
 def run_visualize():
     from lib.networks import make_network
@@ -87,7 +102,6 @@ def run_visualize():
     import tqdm
     import torch
     from lib.visualizers import make_visualizer
-
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
     network.eval()
