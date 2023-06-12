@@ -200,6 +200,8 @@ The training parameters can be found in [project_structure.md](project_structure
 8. Test:
     ```
     python run.py --type evaluate --cfg_file configs/custom.yaml
+    or
+    python run.py --type evaluate --cfg_file configs/custom.yaml test.un_pnp True
     ```
 
 An example dataset can be downloaded at [here](https://zjueducn-my.sharepoint.com/:u:/g/personal/pengsida_zju_edu_cn/Ec6Hd9j7z4lCiwDhqIwDcScBGPw2rsbn6FJh1C2FwbPJTw?e=xcKGAw).
