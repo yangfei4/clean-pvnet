@@ -173,15 +173,19 @@ The training parameters can be found in [project_structure.md](project_structure
     │   │   ├── ...
     │   │   └──
     ```
-2. Create a soft link pointing to the dataset:
+2. Create a soft link pointing to the training and testing dataset:
     ```
     ln -s /path/to/custom_dataset data/custom
+    e.g. 
+    ln -s /pvnet/data/FIT/insert_mold_256_train data/custom
+    ln -s /pvnet/data/FIT/insert_mold_256_test data/custom_test
     ```
 3. Process the dataset, this will create `train.json` and `fps.txt`:
     ```
     python run.py --type custom
+    python run.py --type custom_test
     ```
-4. Visualize Pose Ground Truth
+4. Visualize Pose Ground Truth of training dataset
     ```
     python run.py --type visualize_gt --cfg_file configs/custom.yaml
     ```
