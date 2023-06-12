@@ -72,7 +72,7 @@ class DatasetCatalog(object):
             'ann_file': 'data/YCB/posedb/{}_val.pkl'.format(cfg.cls_type),
             'data_root': 'data/YCB'
         },
-	'CustomTrain': {
+	    'CustomTrain': {
             'id': 'custom',
             'data_root': 'data/custom',
             'ann_file': 'data/custom/train.json',
@@ -80,8 +80,8 @@ class DatasetCatalog(object):
         },
         'CustomTest': {
             'id': 'custom',
-            'data_root': 'data/custom',
-            'ann_file': 'data/custom/train.json',
+            'data_root': 'data/custom_test',
+            'ann_file': 'data/custom_test/train.json',
             'split': 'test'
         }
     }
