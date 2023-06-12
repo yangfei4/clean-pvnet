@@ -173,14 +173,15 @@ The training parameters can be found in [project_structure.md](project_structure
     │   │   ├── ...
     │   │   └──
     ```
-2. Create a soft link pointing to the training and testing dataset:
+2.  Create a soft link pointing to the training and testing dataset:
     ```
     ln -s /path/to/custom_dataset data/custom
     e.g. 
     ln -s /pvnet/data/FIT/insert_mold_256_train data/custom
     ln -s /pvnet/data/FIT/insert_mold_256_test data/custom_test
     ```
-3. Process the dataset, this will create `train.json` and `fps.txt`:
+    And remember to modify customized soft path for you customized dataset [here](https://github.com/yangfei4/clean-pvnet/blob/master/lib/datasets/dataset_catalog.py).
+3.  Process the dataset, this will create `train.json` and `fps.txt`:
     ```
     python run.py --type custom
     python run.py --type custom_test
