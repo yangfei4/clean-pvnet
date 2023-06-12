@@ -235,6 +235,11 @@ def run_custom():
     handle_custom_dataset.sample_fps_points(data_root)
     handle_custom_dataset.custom_to_coco(data_root)
 
+def run_custom_test():
+    from tools import handle_custom_dataset
+    data_root = 'data/custom_test'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
 
 def run_detector_pvnet():
     from lib.networks import make_network
