@@ -29,6 +29,39 @@ def run_dataset():
     for batch in tqdm.tqdm(data_loader):
         pass
 
+def run_inference():
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    from lib.networks import make_network
+    from lib.utils.net_utils import load_network
+    from PIL import Image
+    from lib.config import cfg
+    from lib.visualizers import make_visualizer
+
+    image_path = "/pvnet/data/FIT/insert_mold_256_test/rgb/0.png"
+
+    network = make_network(cfg).cuda()
+    load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
+    network.eval()
+
+    image = Image.open(image_path).convert('RGB')
+    # Preprocess the image
+    # ...
+    processed_image = np.array(image) 
+
+    # Convert the preprocessed image to a tensor and move it to GPU
+    input_tensor = torch.from_numpy(processed_image).permute(2, 0, 1).unsqueeze(0).cuda().float()
+
+    with torch.no_grad():
+        output = network(input_tensor)
+    # Process the output and visualize the results
+    # ...
+    visualizer = make_visualizer(cfg)
+    fig = visualizer.visualize_output(processed_image, output)
+
 
 def run_network():
     from lib.networks import make_network
@@ -54,7 +87,8 @@ def run_network():
             network(batch['inp'], batch)
             torch.cuda.synchronize()
             total_time += time.time() - start
-    print(total_time / len(data_loader))
+    print(f"Inference time on {len(data_loader)} data: ", total_time)
+    print(f"Inference time on single data: ", total_time / len(data_loader))
 
 
 def run_evaluate():
@@ -114,7 +148,13 @@ def run_visualize():
                 batch[k] = batch[k].cuda()
         with torch.no_grad():
             output = network(batch['inp'], batch)
-        visualizer.visualize(output, batch)
+        fig = visualizer.visualize(output, batch)
+
+        # Save the figure
+        save_dir = "/pvnet/data/visualization"
+        img_id = int(batch['img_id'][0])
+        save_path = os.path.join(save_dir, f'{img_id}.png')
+        fig.savefig(save_path)
 
 
 def run_visualize_train():
@@ -127,10 +167,10 @@ def run_visualize_train():
 
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
-    network.eval()
+    # network.eval()
 
-    data_loader = make_data_loader(cfg, is_train=True)
-    visualizer = make_visualizer(cfg, 'train')
+    data_loader = make_data_loader(cfg, is_train=False)
+    visualizer = make_visualizer(cfg)
     for batch in tqdm.tqdm(data_loader):
         for k in batch:
             if k != 'meta':
