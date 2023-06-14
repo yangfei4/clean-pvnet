@@ -5,9 +5,11 @@ from lib.datasets import make_data_loader
 from lib.utils.net_utils import load_model, save_model, load_network
 from lib.evaluators import make_evaluator
 import torch.multiprocessing
-
+import time
 
 def train(cfg, network):
+    time_start = time.time()
+
     if cfg.train.dataset[:4] != 'City':
         torch.multiprocessing.set_sharing_strategy('file_system')
     trainer = make_trainer(cfg, network)
@@ -34,6 +36,9 @@ def train(cfg, network):
         if (epoch + 1) % cfg.eval_ep == 0:
             trainer.val(epoch, val_loader, evaluator, recorder)
 
+    print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch: \\
+          \n{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")
+    print()
     return network
 
 
