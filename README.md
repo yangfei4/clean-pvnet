@@ -201,6 +201,7 @@ The training parameters can be found in [project_structure.md](project_structure
 7. Visualize:
     ```
     python run.py --type visualize --cfg_file configs/custom.yaml
+    python run.py --type visualize_train --cfg_file configs/custom.yaml
     ```
 8. Test:
     ```
