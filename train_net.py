@@ -36,8 +36,8 @@ def train(cfg, network):
         if (epoch + 1) % cfg.eval_ep == 0:
             trainer.val(epoch, val_loader, evaluator, recorder)
 
-    print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch: \\
-          \n{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")
+    print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch:")
+    print(f"{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")
     print()
     return network
 
