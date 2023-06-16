@@ -40,27 +40,34 @@ def run_inference():
     from PIL import Image
     from lib.config import cfg
     from lib.visualizers import make_visualizer
-
-    image_path = "/pvnet/data/FIT/insert_mold_256_test/rgb/0.png"
-
+    # from lib.datasets.transforms import Compose, ToTensor, Normalize
+    from lib.datasets.transforms import make_transforms
+    
+    # image_path = "/pvnet/data/FIT/insert_mold_256_test/rgb/1.png"
+    image_path = "/pvnet/data/FIT/image_basler_5k_128x128_inser.png"
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
     network.eval()
 
     image = Image.open(image_path).convert('RGB')
     # Preprocess the image
-    # ...
-    processed_image = np.array(image) 
+
+    transform = make_transforms(cfg, is_train=False)
+    processed_image, _, _ = transform(image)
+    processed_image = np.array(processed_image).astype(np.float32)
+
 
     # Convert the preprocessed image to a tensor and move it to GPU
-    input_tensor = torch.from_numpy(processed_image).permute(2, 0, 1).unsqueeze(0).cuda().float()
+    input_tensor = torch.from_numpy(processed_image).unsqueeze(0).cuda().float()
 
     with torch.no_grad():
         output = network(input_tensor)
     # Process the output and visualize the results
     # ...
     visualizer = make_visualizer(cfg)
-    fig = visualizer.visualize_output(processed_image, output)
+    fig = visualizer.visualize_output(image, output)
+
+    # import pdb;pdb.set_trace()
 
 
 def run_network():
