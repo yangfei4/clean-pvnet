@@ -29,14 +29,14 @@ class Visualizer:
         K = np.array(anno['K'])
         pose_gt = np.array(anno['pose'])
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
-        
+        if(pose_pred[2,3]<0):
+            pose_pred *= -1
         # shift predicted location to Ground True
         # pose_pred[:,3] = pose_gt[:,3]
 
         corner_3d = np.array(anno['corner_3d'])
         corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
-
         fig, ax = plt.subplots(1)
         ax.imshow(inp)
         ax.axis("off")
@@ -59,39 +59,46 @@ class Visualizer:
         plt.show()
         return fig
 
-    def visualize_output(self, input, output):
+    def visualize_output(self, input_img, output):
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02],
-                    [0.00000e+00, 1.90906e+03, 1.28000e+02],
-                    [0.00000e+00, 0.00000e+00, 1.00000e+00]])
+                      [0.00000e+00, 1.90906e+03, 1.28000e+02],
+                      [0.00000e+00, 0.00000e+00, 1.00000e+00]])
 
-        # (TODO-Yangfei: update these matrix)
         # fpt_3d + center_3d
-        kpt_3d = np.array([[-4.04200004e-03,  3.81499995e-03,  9.36000026e-04],
-                           [ 3.95799987e-03,  3.81499995e-03,  9.35000018e-04],
-                           [ 2.76400009e-03, -4.72499989e-03, -9.20000020e-04],
-                           [-2.84800003e-03, -4.72499989e-03, -9.19000013e-04],
-                           [ 4.03500022e-03,  5.50000004e-05, -1.42099999e-03],
-                           [-4.11899993e-03,  5.50000004e-05, -1.42099999e-03],
-                           [ 8.70999997e-04,  2.81700003e-03, -2.02000001e-03],
-                           [-3.91999987e-04,  3.20799998e-03,  1.24500005e-03],
-                           [-4.20000000e-05, -4.55000000e-04,  5.30000000e-05]])
+        kpt_3d = np.array([[-4.04200004e-03,  4.26999992e-03,  9.36000026e-04],
+                           [ 3.95799987e-03,  4.26999992e-03,  9.35000018e-04],
+                           [ 2.76400009e-03, -4.26999992e-03, -9.20000020e-04],
+                           [-2.84800003e-03, -4.26999992e-03, -9.19000013e-04],
+                           [ 4.03500022e-03,  5.09999983e-04, -1.42099999e-03],
+                           [-4.11899993e-03,  5.09999983e-04, -1.42099999e-03],
+                           [ 8.70999997e-04,  3.27200000e-03, -2.02000001e-03],
+                           [-3.91999987e-04,  3.66299995e-03,  1.24500005e-03],
+                           [-4.20000000e-05,  0.00000000e+00,  5.30000000e-05]])
 
-        corner_3d = np.array([[-0.004242, -0.004725, -0.00202 ],
-                              [-0.004242, -0.004725,  0.002126],
-                              [-0.004242,  0.003815, -0.00202 ],
-                              [-0.004242,  0.003815,  0.002126],
-                              [ 0.004158, -0.004725, -0.00202 ],
-                              [ 0.004158, -0.004725,  0.002126],
-                              [ 0.004158,  0.003815, -0.00202 ],
-                              [ 0.004158,  0.003815,  0.002126]])
+
+        corner_3d = np.array([[-0.004242, -0.00427 , -0.00202 ],
+                              [-0.004242, -0.00427 ,  0.002126],
+                              [-0.004242,  0.00427 , -0.00202 ],
+                              [-0.004242,  0.00427 ,  0.002126],
+                              [ 0.004158, -0.00427 , -0.00202 ],
+                              [ 0.004158, -0.00427 ,  0.002126],
+                              [ 0.004158,  0.00427 , -0.00202 ],
+                              [ 0.004158,  0.00427 ,  0.002126]])
 
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
+        if(pose_pred[2,3]<0):
+            pose_pred *= -1
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
         # import pdb;pdb.set_trace()
+        print("Camera Intrinsics:")
+        print(K)
 
+        print("Predicted Pose wrt camera:")
+        print(pose_pred)
+        # import pdb;pdb.set_trace()
         fig, ax = plt.subplots(1)
-        ax.imshow(input)
+        ax.imshow(input_img)
         ax.axis("off")
 
         # Add patches for corner_2d_gt and corner_2d_pred
@@ -150,4 +157,37 @@ class Visualizer:
         plt.show()
 
 
+        # Not appliable because of gimbal lock
+        # ###################################################
+        # def average_error(pose_pred, pose_gt):
+        #     from scipy.spatial.transform import Rotation
 
+        #     translation_error = np.abs(pose_pred[:, 3] - pose_gt[:, 3])
+
+        #     rotation_pred = Rotation.from_matrix(pose_pred[:, :3])
+        #     rotation_gt = Rotation.from_matrix(pose_gt[:, :3])
+        #     euler_error = rotation_pred.inv() * rotation_gt
+        #     euler_error = euler_error.as_euler('zyx', degrees=True)
+        #     euler_error = np.abs(euler_error)
+        #     print(pose_gt)
+        #     print(pose_pred)
+        #     print('Translation Error (X-axis): {:.1f} mm'.format(translation_error[0] * 1000))
+        #     print('Translation Error (Y-axis): {:.1f} mm'.format(translation_error[1] * 1000))
+        #     print('Translation Error (Z-axis): {:.1f} mm'.format(translation_error[2] * 1000))
+
+        #     print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_error[0]))
+        #     print('Euler Angle Error (Y-axis): {:.1f} deg'.format(euler_error[1]))
+        #     print('Euler Angle Error (Z-axis): {:.1f} deg'.format(euler_error[2]))
+
+        #     euler_pred = rotation_pred.as_euler('zyx', degrees=True)
+        #     euler_gt = rotation_gt.as_euler('zyx', degrees=True)
+        #     print('Euler Angle (X-axis) - pred: {:.1f} deg'.format(euler_pred[0]))
+        #     print('Euler Angle (Y-axis) - pred: {:.1f} deg'.format(euler_pred[1]))
+        #     print('Euler Angle (Z-axis) - pred: {:.1f} deg'.format(euler_pred[2]))
+
+        #     print('Euler Angle (X-axis) - gt: {:.1f} deg'.format(euler_gt[0]))
+        #     print('Euler Angle (Y-axis) - gt: {:.1f} deg'.format(euler_gt[1]))
+        #     print('Euler Angle (Z-axis) - gt: {:.1f} deg'.format(euler_gt[2]))
+        # average_error(pose_pred, pose_gt)
+        
+        # ###################################################
