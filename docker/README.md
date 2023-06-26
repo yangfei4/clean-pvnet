@@ -1,12 +1,12 @@
 # README
 
-## Build 
+## Build docker image 
 
 ```bash
 docker build -t pvnet_clean:latest .
 ```
 
-## Run
+## Build docker container
 
 To run the docker
 Add the following to your ~/.bashrc
@@ -20,13 +20,15 @@ source $PVNET_GIT/docker/setup_dev.bash
 
 build a docker container and mount it with your local folder:
 ```bash
-cd /path/to/pvnet-clean
-bash docker/build_container
+cd /path/to/clean-pvnet # update
+bash docker/build_container.bash
 ```
 
+## Start docker container
+start docker container:
 ```bash
 # If it's your first time to build the container, no need to run this line:
-bash docker/start_container
+bash docker/start_container.bash
 cd pvnet
 conda activate pvnet
 ```
