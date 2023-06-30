@@ -29,10 +29,11 @@ class Trainer(object):
         max_iter = len(data_loader)
         self.network.train()
         end = time.time()
+
         for iteration, batch in enumerate(data_loader):
             data_time = time.time() - end
             iteration = iteration + 1
-            recorder.step += 1
+            # recorder.step += 1
 
             # batch = self.to_cuda(batch)
             output, loss, loss_stats, image_stats = self.network(batch)
@@ -66,14 +67,20 @@ class Trainer(object):
 
                 # record loss_stats and image_dict
                 recorder.update_image_stats(image_stats)
-                recorder.record('train')
+                
+                # recorder.record('train')
+        # Record the training statistics at the end of each epoch
+        recorder.record('train')
+        recorder.step += 1
 
     def val(self, epoch, data_loader, evaluator=None, recorder=None):
         self.network.eval()
         torch.cuda.empty_cache()
         val_loss_stats = {}
         data_size = len(data_loader)
+        batch_num = 0
         for batch in tqdm.tqdm(data_loader):
+            batch_num += 1
             for k in batch:
                 if k != 'meta':
                     batch[k] = batch[k].cuda()
@@ -83,6 +90,7 @@ class Trainer(object):
                 if evaluator is not None:
                     evaluator.evaluate(output, batch)
 
+            import pdb;pdb.set_trace()
             loss_stats = self.reduce_loss_stats(loss_stats)
             for k, v in loss_stats.items():
                 val_loss_stats.setdefault(k, 0)
@@ -90,7 +98,7 @@ class Trainer(object):
 
         loss_state = []
         for k in val_loss_stats.keys():
-            val_loss_stats[k] /= data_size
+            val_loss_stats[k] /= data_size*batch_num
             loss_state.append('{}: {:.4f}'.format(k, val_loss_stats[k]))
         print(loss_state)
 
