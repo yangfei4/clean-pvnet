@@ -1,8 +1,6 @@
 from lib.config import cfg, args
 import numpy as np
 import os
-# import matplotlib
-# matplotlib.use('Agg')
 
 def run_rgb():
     import glob
@@ -32,6 +30,7 @@ def run_dataset():
 def run_inference():
     import torch
     import numpy as np
+    import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
 
@@ -43,8 +42,13 @@ def run_inference():
     # from lib.datasets.transforms import Compose, ToTensor, Normalize
     from lib.datasets.transforms import make_transforms
     
+    # matplotlib.use('Agg')
     # image_path = "/pvnet/data/FIT/insert_mold_256_test/rgb/1.png"
-    image_path = "/pvnet/data/FIT/image_basler_5k_128x128_inser.png"
+    
+    # image_path = "/pvnet/data/FIT/image_basler_5k_256x256_inser.png"
+    # image_path = "/pvnet/data/FIT/Zed2i_128x128_01.png"
+    
+    image_path = "/pvnet/data/FIT/image_basler_5k_128x128_01.png"
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
     network.eval()
@@ -65,7 +69,8 @@ def run_inference():
     # Process the output and visualize the results
     # ...
     visualizer = make_visualizer(cfg)
-    fig = visualizer.visualize_output(image, output)
+    # fig = visualizer.visualize_output(image, output)
+    visualizer.visualize_output(image, output)
 
     # import pdb;pdb.set_trace()
 
@@ -114,6 +119,7 @@ def run_evaluate():
 
     data_loader = make_data_loader(cfg, is_train=False)
     evaluator = make_evaluator(cfg)
+    # import pdb;pdb.set_trace()
     for batch in tqdm.tqdm(data_loader):
         inp = batch['inp'].cuda()
         with torch.no_grad():
@@ -165,6 +171,7 @@ def run_visualize():
 
 
 def run_visualize_train():
+    # Visualize data annotation -- mask, keypoints
     from lib.networks import make_network
     from lib.datasets import make_data_loader
     from lib.utils.net_utils import load_network
@@ -232,25 +239,6 @@ def run_linemod():
     linemod_to_coco.linemod_to_coco(cfg)
 
 
-def run_tless():
-    from lib.datasets.tless import handle_rendering_data, fuse, handle_test_data, handle_ag_data, tless_to_coco
-    # handle_rendering_data.render()
-    # handle_rendering_data.render_to_coco()
-    # handle_rendering_data.prepare_asset()
-
-    # fuse.fuse()
-    # handle_test_data.get_mask()
-    # handle_test_data.test_to_coco()
-    handle_test_data.test_pose_to_coco()
-
-    # handle_ag_data.ag_to_coco()
-    # handle_ag_data.get_ag_mask()
-    # handle_ag_data.prepare_asset()
-
-    # tless_to_coco.handle_train_symmetry_pose()
-    # tless_to_coco.tless_train_to_coco()
-
-
 def run_ycb():
     from lib.datasets.ycb import handle_ycb
     handle_ycb.collect_ycb()
@@ -275,6 +263,41 @@ def run_render():
     plt.imshow(depth)
     plt.show()
 
+def run_insert_mold():
+    from tools import handle_custom_dataset
+    data_root = 'data/insert_mold_train'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
+
+def run_insert_mold_test():
+    from tools import handle_custom_dataset
+    data_root = 'data/insert_mold_test'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
+
+def run_mainshell():
+    from tools import handle_custom_dataset
+    data_root = 'data/mainshell_train'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
+
+def run_mainshell_test():
+    from tools import handle_custom_dataset
+    data_root = 'data/mainshell_test'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
+
+def run_topshell():
+    from tools import handle_custom_dataset
+    data_root = 'data/topshell_train'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
+
+def run_topshell_test():
+    from tools import handle_custom_dataset
+    data_root = 'data/topshell_test'
+    handle_custom_dataset.sample_fps_points(data_root)
+    handle_custom_dataset.custom_to_coco(data_root)
 
 def run_custom():
     from tools import handle_custom_dataset
