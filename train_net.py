@@ -30,10 +30,10 @@ def train(cfg, network):
         trainer.train(epoch, train_loader, optimizer, recorder)
         scheduler.step()
 
-        if (epoch + 1) % cfg.save_ep == 0:
+        if epoch % cfg.save_ep == 0:
             save_model(network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
 
-        if (epoch + 1) % cfg.eval_ep == 0:
+        if epoch % cfg.eval_ep == 0:
             trainer.val(epoch, val_loader, evaluator, recorder)
 
     print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch:")
