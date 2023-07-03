@@ -22,9 +22,10 @@ class Evaluator:
         self.coco = coco.COCO(self.ann_file)
 
         data_root = args['data_root']
-        model_path = 'data/custom/model.ply'
+        cls = cfg.cls_type
+        model_path = os.path.join('data', cls+'_train', cls + '.ply')
         self.model = pvnet_data_utils.get_ply_model(model_path)
-        self.diameter = np.loadtxt('data/custom/diameter.txt').item()
+        # self.diameter = np.loadtxt('data/custom/diameter.txt').item()
 
         self.proj2d = []
         self.add = []
