@@ -23,7 +23,7 @@ class Evaluator:
 
         data_root = args['data_root']
         cls = cfg.cls_type
-        model_path = os.path.join('data', cls+'_train', cls + '.ply')
+        model_path = os.path.join('data', cls+'_train', 'model.ply')
         self.model = pvnet_data_utils.get_ply_model(model_path)
         # self.diameter = np.loadtxt('data/custom/diameter.txt').item()
 
