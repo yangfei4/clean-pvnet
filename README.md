@@ -72,84 +72,12 @@ Another way is to use the following commands.
     ln -s /path/to/SUN2012pascalformat sun
     ```
 
-Download datasets which are formatted for this project:
-1. [linemod](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/Eh27tt7m6fJNgcCKMp9BzjABRzJTju6bT2GIZzcIVGu9WA?e=vURdqJ)
-2. [linemod_orig](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/Eh27tt7m6fJNgcCKMp9BzjABRzJTju6bT2GIZzcIVGu9WA?e=vURdqJ): The dataset includes the depth for each image.
-3. [occlusion linemod](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/Eh27tt7m6fJNgcCKMp9BzjABRzJTju6bT2GIZzcIVGu9WA?e=vURdqJ)
-4. [truncation linemod](https://1drv.ms/u/s!AtZjYZ01QjphfuDICdni1IIM4SE): Check [TRUNCATION_LINEMOD.md](TRUNCATION_LINEMOD.md) for the information about the Truncation LINEMOD dataset.
-5. [Tless](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/EjoUiAwfPOhGgFGPnJANDqoBLxnUAc7DO77voz6-KVp5Wg?e=6UGB3p): `cat tlessa* | tar xvf - -C .`.
-6. [Tless cache data](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/EjoUiAwfPOhGgFGPnJANDqoBLxnUAc7DO77voz6-KVp5Wg?e=6UGB3p): It is used for training and testing on Tless.
-7. [SUN2012pascalformat](http://groups.csail.mit.edu/vision/SUN/releases/SUN2012pascalformat.tar.gz)
-
-## Testing
-
-### Testing on Linemod
-
-We provide the pretrained models of objects on Linemod, which can be found at [here](https://1drv.ms/f/s!AtZjYZ01QjphgQBQDQghxjbkik5f).
-
-Take the testing on `cat` as an example.
-
-1. Prepare the data related to `cat`:
-    ```
-    python run.py --type linemod cls_type cat
-    ```
-2. Download the pretrained model of `cat` and put it to `$ROOT/data/model/pvnet/cat/199.pth`.
-3. Test:
-    ```
-    python run.py --type evaluate --cfg_file configs/linemod.yaml model cat cls_type cat
-    python run.py --type evaluate --cfg_file configs/linemod.yaml test.dataset LinemodOccTest model cat cls_type cat
-    ```
-4. Test with icp:
-    ```
-    python run.py --type evaluate --cfg_file configs/linemod.yaml model cat cls_type cat test.icp True
-    python run.py --type evaluate --cfg_file configs/linemod.yaml test.dataset LinemodOccTest model cat cls_type cat test.icp True
-    ```
-5. Test with the uncertainty-driven PnP:
-    ```
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./lib/csrc/uncertainty_pnp/lib
-    python run.py --type evaluate --cfg_file configs/linemod.yaml model cat cls_type cat test.un_pnp True
-    python run.py --type evaluate --cfg_file configs/linemod.yaml test.dataset LinemodOccTest model cat cls_type cat test.un_pnp True
-    ```
-
-## Visualization
-
-### Demo
-
-```
-python run.py --type demo --cfg_file configs/linemod.yaml demo_path demo_images/cat
-```
-
-### Visualization on Linemod
-
-Take the `cat` as an example.
-
-1. Prepare the data related to `cat`:
-    ```
-    python run.py --type linemod cls_type cat
-    ```
-2. Download the pretrained model of `cat` and put it to `$ROOT/data/model/pvnet/cat/199.pth`.
-3. Visualize:
-    ```
-    python run.py --type visualize --cfg_file configs/linemod.yaml model cat cls_type cat
-    ```
-
-If setup correctly, the output will look like
-
-![cat](./assets/cat.png)
-
-4. Visualize with a detector:
-
-   Download the pretrained models [here](https://zjueducn-my.sharepoint.com/:f:/g/personal/pengsida_zju_edu_cn/Eh27tt7m6fJNgcCKMp9BzjABRzJTju6bT2GIZzcIVGu9WA?e=vURdqJ) and put them to `$ROOT/data/model/pvnet/pvnet_cat/59.pth` and `$ROOT/data/model/ct/ct_cat/9.pth`
-   
-   ```
-   python run.py --type detector_pvnet --cfg_file configs/ct_linemod.yaml
-   ```
 
 ## Training on the custom object
 
 The training parameters can be found in [project_structure.md](project_structure.md).
 
-1. Create a dataset using https://github.com/F2Wang/ObjectDatasetTools
+1. Create a synthetic dataset with mask and pose annotation using Blenderproc2. 
 2. Organize the dataset as the following structure:
     ```
     ├── /path/to/dataset
@@ -175,22 +103,12 @@ The training parameters can be found in [project_structure.md](project_structure
     ```
 2.  Create a soft link pointing to the training and testing dataset:
     ```
-    ln -s /path/to/custom_dataset data/custom
+    ln -s /path/to/dataset data/category
     ```
     insert_mold:
     ```
     ln -s /pvnet/data/FIT/insert_mold_train data/insert_mold_train
     ln -s /pvnet/data/FIT/insert_mold_test data/insert_mold_test
-    ```
-    mainshell: 
-    ```
-    ln -s /pvnet/data/FIT/mainshell_train data/mainshell_train
-    ln -s /pvnet/data/FIT/mainshell_test data/mainshell_test
-    ```
-    topshell: 
-    ```
-    ln -s /pvnet/data/FIT/topshell_train data/topshell_train
-    ln -s /pvnet/data/FIT/topshell_test data/topshell_test
     ```
     And remember to modify customized soft path for you customized dataset [here](https://github.com/yangfei4/clean-pvnet/blob/master/lib/datasets/dataset_catalog.py).
 3.  Process the dataset, this will create `train.json` and `fps.txt`:
@@ -200,11 +118,11 @@ The training parameters can be found in [project_structure.md](project_structure
     ```
 4. Visualize Pose Ground Truth of training dataset
     ```
-    python run.py --type visualize_gt --cfg_file configs/custom.yaml
+    python run.py --type visualize_gt --cfg_file configs/insert_mold.yaml
     ```
 5. Train:
     ```
-    python train_net.py --cfg_file configs/custom.yaml train.batch_size 4
+    python train_net.py --cfg_file configs/insert_mold.yaml train.batch_size 32
     ```
 6. Watch the training curve:
     ```
@@ -212,17 +130,15 @@ The training parameters can be found in [project_structure.md](project_structure
     ```
 7. Visualize:
     ```
-    python run.py --type visualize --cfg_file configs/custom.yaml
-    python run.py --type visualize_train --cfg_file configs/custom.yaml
+    python run.py --type visualize --cfg_file configs/insert_mold.yaml
+    python run.py --type visualize_train --cfg_file configs/insert_mold.yaml
     ```
 8. Test:
     ```
-    python run.py --type evaluate --cfg_file configs/custom.yaml
+    python run.py --type evaluate --cfg_file configs/insert_mold.yaml
     or
-    python run.py --type evaluate --cfg_file configs/custom.yaml test.un_pnp True
+    python run.py --type evaluate --cfg_file configs/insert_mold.yaml test.un_pnp True
     ```
-
-An example dataset can be downloaded at [here](https://zjueducn-my.sharepoint.com/:u:/g/personal/pengsida_zju_edu_cn/Ec6Hd9j7z4lCiwDhqIwDcScBGPw2rsbn6FJh1C2FwbPJTw?e=xcKGAw).
 
 ## Citation
 
