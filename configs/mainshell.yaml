@@ -18,7 +18,7 @@ train:
     milestones: (20, 40, 60, 80, 100, 120, 160, 180, 200, 220)
     gamma: 0.5
     batch_size: 32
-    dataset: 'MainshellTrain'
+    dataset: 'FitTrain'
     cropresize_rate: 1.0
     rotate_rate: 1.0
     rotate_min: -30
@@ -26,7 +26,7 @@ train:
     weight_decay: 0.
     batch_sampler: 'image_size'
 test:
-    dataset: 'MainshellTest'
+    dataset: 'FitTest'
     batch_size: 1
     batch_sampler: 'image_size'
     un_pnp: True
