@@ -35,6 +35,7 @@ class Visualizer:
         # pose_pred[:,3] = pose_gt[:,3]
 
         corner_3d = np.array(anno['corner_3d'])
+        import pdb;pdb.set_trace()
         corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
         fig, ax = plt.subplots(1)
@@ -72,35 +73,85 @@ class Visualizer:
         K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
                       [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
                       [0.00000e+00, 0.00000e+00, 1.00000e+00]])
+        K = np.array([[21971.333024, 0, 1.28000e+02/2], 
+                      [0, 22025.144687, 1.28000e+02/2],
+                      [0, 0, 1]])
+        
 
+        # # mainshell
+        kpt_3d = np.array([[ 4.27700020e-03,  4.52100020e-03,  1.45500002e-03],
+                            [-4.28400002e-03,  4.52100020e-03,  1.45500002e-03],
+                            [-4.42600017e-03, -4.54499992e-03, -3.76999989e-04],
+                            [ 4.41800011e-03, -4.54499992e-03, -3.76999989e-04],
+                            [ 1.10899995e-03,  4.52100020e-03, -1.54099998e-03],
+                            [ 4.10999986e-04, -4.54499992e-03, -1.54099998e-03],
+                            [-3.26999999e-03,  1.70699996e-03, -1.54099998e-03],
+                            [ 4.21599997e-03,  1.22300000e-03,  1.38999996e-04],
+                            [-4.00000000e-06, -1.20000000e-05, -4.30000000e-05]])
+
+        corner_3d = np.array([[-0.004426, -0.004545, -0.001541],
+                                [-0.004426, -0.004545,  0.001455],
+                                [-0.004426,  0.004521, -0.001541],
+                                [-0.004426,  0.004521,  0.001455],
+                                [ 0.004418, -0.004545, -0.001541],
+                                [ 0.004418, -0.004545,  0.001455],
+                                [ 0.004418,  0.004521, -0.001541],
+                                [ 0.004418,  0.004521,  0.001455]])
+
+        # # topshell
+        # kpt_3d = np.array([[-4.53499984e-03, -4.45599994e-03, -1.49000005e-03],
+        #                     [ 4.55900002e-03, -4.45599994e-03, -1.49000005e-03],
+        #                     [-4.03500022e-03,  4.45399992e-03,  2.06000009e-03],
+        #                     [ 4.05899994e-03,  4.45399992e-03,  2.05900008e-03],
+        #                     [ 5.88200008e-03, -6.10999996e-04,  2.18000007e-03],
+        #                     [-5.85799990e-03, -6.10999996e-04,  2.18100008e-03],
+        #                     [ 1.11199997e-03,  4.41400008e-03, -1.97299989e-03],
+        #                     [-3.57800000e-03,  4.05400014e-03, -2.19899998e-03],
+        #                     [ 1.20000000e-05, -1.00000000e-06, -1.20000000e-05]])
+
+        # corner_3d = np.array([[-0.005888, -0.004456, -0.002205],
+        #                         [-0.005888, -0.004456,  0.002181],
+        #                         [-0.005888,  0.004454, -0.002205],
+        #                         [-0.005888,  0.004454,  0.002181],
+        #                         [ 0.005912, -0.004456, -0.002205],
+        #                         [ 0.005912, -0.004456,  0.002181],
+        #                         [ 0.005912,  0.004454, -0.002205],
+        #                         [ 0.005912,  0.004454,  0.002181]])
+
+        # insert_mold
         # fpt_3d + center_3d
-        kpt_3d = np.array([[-4.04200004e-03,  4.26999992e-03,  9.36000026e-04],
-                           [ 3.95799987e-03,  4.26999992e-03,  9.35000018e-04],
-                           [ 2.76400009e-03, -4.26999992e-03, -9.20000020e-04],
-                           [-2.84800003e-03, -4.26999992e-03, -9.19000013e-04],
-                           [ 4.03500022e-03,  5.09999983e-04, -1.42099999e-03],
-                           [-4.11899993e-03,  5.09999983e-04, -1.42099999e-03],
-                           [ 8.70999997e-04,  3.27200000e-03, -2.02000001e-03],
-                           [-3.91999987e-04,  3.66299995e-03,  1.24500005e-03],
-                           [-4.20000000e-05,  0.00000000e+00,  5.30000000e-05]])
+        # kpt_3d = np.array([[-4.04200004e-03,  4.26999992e-03,  9.36000026e-04],
+        #                    [ 3.95799987e-03,  4.26999992e-03,  9.35000018e-04],
+        #                    [ 2.76400009e-03, -4.26999992e-03, -9.20000020e-04],
+        #                    [-2.84800003e-03, -4.26999992e-03, -9.19000013e-04],
+        #                    [ 4.03500022e-03,  5.09999983e-04, -1.42099999e-03],
+        #                    [-4.11899993e-03,  5.09999983e-04, -1.42099999e-03],
+        #                    [ 8.70999997e-04,  3.27200000e-03, -2.02000001e-03],
+        #                    [-3.91999987e-04,  3.66299995e-03,  1.24500005e-03],
+        #                    [-4.20000000e-05,  0.00000000e+00,  5.30000000e-05]])
 
-        corner_3d = np.array([[-0.004242, -0.00427 , -0.00202 ],
-                              [-0.004242, -0.00427 ,  0.002126],
-                              [-0.004242,  0.00427 , -0.00202 ],
-                              [-0.004242,  0.00427 ,  0.002126],
-                              [ 0.004158, -0.00427 , -0.00202 ],
-                              [ 0.004158, -0.00427 ,  0.002126],
-                              [ 0.004158,  0.00427 , -0.00202 ],
-                              [ 0.004158,  0.00427 ,  0.002126]])
+        # corner_3d = np.array([[-0.004242, -0.00427 , -0.00202 ],
+        #                       [-0.004242, -0.00427 ,  0.002126],
+        #                       [-0.004242,  0.00427 , -0.00202 ],
+        #                       [-0.004242,  0.00427 ,  0.002126],
+        #                       [ 0.004158, -0.00427 , -0.00202 ],
+        #                       [ 0.004158, -0.00427 ,  0.002126],
+        #                       [ 0.004158,  0.00427 , -0.00202 ],
+        #                       [ 0.004158,  0.00427 ,  0.002126]])
 
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
         if(pose_pred[2,3]<0):
             pose_pred *= -1
+
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
         print("Camera Intrinsics:")
         print(K)
         print("Predicted Pose wrt camera:")
         print(pose_pred)
+
+        euler_angles = self.pose_matrix_to_euler(pose_pred)
+        print("Euler angle:")
+        print(euler_angles)
 
         plt.figure(0)
         plt.subplot(221)
@@ -122,14 +173,25 @@ class Visualizer:
         ax = plt.subplot(224)
         ax.imshow(input_img)
         # Add patches for corner_2d_gt and corner_2d_pred
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0]], fill=False, linewidth=1, edgecolor='b'))  #  side (blue)
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5]], fill=False, linewidth=1, edgecolor='b'))  #  side (blue)
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 4, 6, 2, 0]], fill=False, linewidth=1, edgecolor='r'))  # Top side (RED)
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 1, 3, 7, 5]], fill=False, linewidth=1, edgecolor='b'))  # Bottom side (blue)
+
+        # ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
+        # ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
         plt.axis('off')
         plt.title('Pose Prediction')
         
         plt.show()
         # return fig
 
+    def pose_matrix_to_euler(self, pose_matrix):
+        from scipy.spatial.transform import Rotation
+        rotation_matrix = pose_matrix[:3, :3]
+        rotation = Rotation.from_matrix(rotation_matrix)
+        euler_angles = rotation.as_euler('zyx', degrees=True)
+        return euler_angles
 
     def visualize_train(self, output, batch):
         import torch
