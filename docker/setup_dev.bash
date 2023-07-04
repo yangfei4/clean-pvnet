@@ -10,7 +10,7 @@ pvnet_docker() {
     -v /dev/input:/dev/input \
     -v "$HOME/docker_shared:$HOME/docker_shared" \
     -v "$PVNET_GIT:$HOME/pvnet" \
-    --shm-size=4G \
+    --shm-size=16G \
     --workdir $HOME/ \
     --net=host \
     --add-host pvnet_dev:127.0.0.1 \
@@ -19,6 +19,12 @@ pvnet_docker() {
     --env=DISPLAY \
     --env=XDG_RUNTIME_DIR \
     --env=QT_X11_NO_MITSHM=1 \
+    --env="XAUTHORITY=$XAUTH" \
+	  --env="DISPLAY=$DISPLAY" \
+	  --env="QT_X11_NO_MITSHM=1" \
+	  --runtime=nvidia \
+	  --net=host --gpus all \
+    --env="NVIDIA_DRIVER_CAPABILITIES=all" \
     --device=/dev/dri:/dev/dri \
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
     -v /etc/localtime:/etc/localtime:ro \

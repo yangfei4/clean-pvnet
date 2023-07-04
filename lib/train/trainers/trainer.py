@@ -90,7 +90,6 @@ class Trainer(object):
                 if evaluator is not None:
                     evaluator.evaluate(output, batch)
 
-            import pdb;pdb.set_trace()
             loss_stats = self.reduce_loss_stats(loss_stats)
             for k, v in loss_stats.items():
                 val_loss_stats.setdefault(k, 0)

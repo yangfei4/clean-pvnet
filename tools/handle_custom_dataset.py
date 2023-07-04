@@ -54,7 +54,7 @@ def record_ann(model_meta, img_id, ann_id, images, annotations):
     inds = range(len(os.listdir(rgb_dir)))
 
     for ind in tqdm.tqdm(inds):
-        rgb_path = os.path.join(rgb_dir, '{}.jpg'.format(ind))
+        rgb_path = os.path.join(rgb_dir, '{}.png'.format(ind))
 
         rgb = Image.open(rgb_path)
         img_size = rgb.size
@@ -108,7 +108,7 @@ def custom_to_coco(data_root):
     annotations = []
 
     img_id, ann_id = record_ann(model_meta, img_id, ann_id, images, annotations)
-    categories = [{'supercategory': 'none', 'id': 1, 'name': 'cat'}]
+    categories = [{'supercategory': 'none', 'id': 1, 'name': 'FIT'}]
     instance = {'images': images, 'annotations': annotations, 'categories': categories}
 
     anno_path = os.path.join(data_root, 'train.json')

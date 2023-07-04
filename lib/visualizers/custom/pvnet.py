@@ -60,9 +60,17 @@ class Visualizer:
         return fig
 
     def visualize_output(self, input_img, output):
+        # output: 
+        # 'seg'    : 1 x 2 x img_size x img_size
+        # 'vertex' : 1 x 18 x img_size x img_size
+        # 'mask'   : 1 x 2 x img_size x img_size
+        # 'kpt_2d' : 1 x 9 x 2
+        # 'var'    : 1 x 9 x 2 x 2 
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
-        K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02],
-                      [0.00000e+00, 1.90906e+03, 1.28000e+02],
+        mask = output['seg'][0][0].detach().cpu().numpy()
+        
+        K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
+                      [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
                       [0.00000e+00, 0.00000e+00, 1.00000e+00]])
 
         # fpt_3d + center_3d
@@ -75,7 +83,6 @@ class Visualizer:
                            [ 8.70999997e-04,  3.27200000e-03, -2.02000001e-03],
                            [-3.91999987e-04,  3.66299995e-03,  1.24500005e-03],
                            [-4.20000000e-05,  0.00000000e+00,  5.30000000e-05]])
-
 
         corner_3d = np.array([[-0.004242, -0.00427 , -0.00202 ],
                               [-0.004242, -0.00427 ,  0.002126],
@@ -90,32 +97,51 @@ class Visualizer:
         if(pose_pred[2,3]<0):
             pose_pred *= -1
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
-        # import pdb;pdb.set_trace()
         print("Camera Intrinsics:")
         print(K)
-
         print("Predicted Pose wrt camera:")
         print(pose_pred)
-        # import pdb;pdb.set_trace()
-        fig, ax = plt.subplots(1)
-        ax.imshow(input_img)
-        ax.axis("off")
 
+        plt.figure(0)
+        plt.subplot(221)
+        plt.imshow(input_img)
+        plt.axis('off')
+        plt.title('Input Image')
+
+        plt.subplot(222)
+        plt.imshow(mask)
+        plt.axis('off')
+        plt.title('Segmentation')
+
+        plt.subplot(223)
+        plt.imshow(input_img)
+        plt.scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
+        plt.axis('off')
+        plt.title('Key points detection')
+
+        ax = plt.subplot(224)
+        ax.imshow(input_img)
         # Add patches for corner_2d_gt and corner_2d_pred
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
-
+        plt.axis('off')
+        plt.title('Pose Prediction')
+        
         plt.show()
-        return fig
+        # return fig
 
 
     def visualize_train(self, output, batch):
+        import torch
         inp = img_utils.unnormalize_img(batch['inp'][0], mean, std).permute(1, 2, 0)
-        mask = batch['mask'][0].detach().cpu().numpy()
-        vertex = batch['vertex'][0][0].detach().cpu().numpy()
+        # mask = batch['mask'][0].detach().cpu().numpy()
+        mask = output['seg'][0][0].detach().cpu().numpy()
+        # vertex = batch['vertex'][0][0].detach().cpu().numpy()
+        vertex = output['vertex'][0][0].detach().cpu().numpy()
         img_id = int(batch['img_id'][0])
         anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
         fps_2d = np.array(anno['fps_2d'])
+        # fps_2d = output['kpt_2d'][0].detach().cpu().numpy()
         plt.figure(0)
         plt.subplot(221)
         plt.imshow(inp)
