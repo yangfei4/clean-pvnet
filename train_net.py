@@ -27,14 +27,15 @@ def train(cfg, network):
 
     for epoch in range(begin_epoch, cfg.train.epoch):
         recorder.epoch = epoch
-        trainer.train(epoch, train_loader, optimizer, recorder)
-        scheduler.step()
 
         if epoch % cfg.save_ep == 0:
             save_model(network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
 
-        if epoch % cfg.eval_ep == 0:
+        if epoch<=25 or epoch%cfg.eval_ep == 0:
             trainer.val(epoch, val_loader, evaluator, recorder)
+        
+        trainer.train(epoch, train_loader, optimizer, recorder)
+        scheduler.step()
 
     print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch:")
     print(f"{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")
