@@ -114,14 +114,21 @@ class Visualizer:
 
         ax = plt.subplot(224)
         ax.imshow(input_img)
-        # Add patches for corner_2d_gt and corner_2d_pred
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0]], fill=False, linewidth=1, edgecolor='b'))  #  side (blue)
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5]], fill=False, linewidth=1, edgecolor='b'))  #  side (blue)
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 4, 6, 2, 0]], fill=False, linewidth=1, edgecolor='r'))  # Top side (RED)
-        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 1, 3, 7, 5]], fill=False, linewidth=1, edgecolor='b'))  # Bottom side (blue)
 
-        # ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
-        # ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+        # Calculate center of bounding box
+        center_x = np.mean(corner_2d_pred[:, 0])
+        center_y = np.mean(corner_2d_pred[:, 1])
+        shift_x = center_x - corner_2d_pred[3, 0]
+        shift_y = center_y - corner_2d_pred[3, 1]
+        # Plot X-axis
+        ax.plot([center_x , corner_2d_pred[7, 0]+shift_x], [center_y, corner_2d_pred[7, 1]+shift_y], color='r', linewidth=1)
+        # Plot Y-axis
+        ax.plot([center_x, corner_2d_pred[1, 0]+shift_x], [center_y, corner_2d_pred[1, 1]+shift_y], color='g', linewidth=1)
+        # Plot Z-axis
+        ax.plot([center_x, corner_2d_pred[2, 0]+shift_x], [center_y, corner_2d_pred[2, 1]+shift_y], color='b', linewidth=1)
+        # Add patches for corner_2d_gt and corner_2d_pred
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
+        ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
         plt.axis('off')
         plt.title('Pose Prediction')
         
