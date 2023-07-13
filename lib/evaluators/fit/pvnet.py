@@ -33,6 +33,8 @@ class Evaluator:
         self.cmd5 = []
         self.mask_ap = []
         # self.euler_err = [] # degree
+        self.angular_rotation_err = [] # degree
+        self.angular_quaternion_err = [] # degree
         self.trans_err = [] # meter
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
 
@@ -80,6 +82,27 @@ class Evaluator:
         else:
             self.add.append(mean_dist < diameter)
 
+    def quaternion_angular_err(self, pose_pred, pose_targets):
+        # This line is to make sure the Z Value is positive(object points towards the camera)
+        if(pose_pred[2,3]<0):
+            pose_pred *= -1
+        R1 = pose_pred[:, :3]
+        R2 = pose_targets[:, :3]
+
+        # Convert rotation matrices to quaternion representations
+        quat1 = Rotation.from_matrix(R1).as_quat()
+        quat2 = Rotation.from_matrix(R2).as_quat()
+
+        # Compute the dot product between the quaternions
+        quat_diff = np.abs(np.multiply(quat1, quat2)) 
+
+        # Compute the angular difference (in radians)
+        angular_diff = 2 * np.arccos(np.sum(quat_diff))
+
+        # Convert angular difference to degrees
+        angular_diff_deg = np.rad2deg(angular_diff)
+        self.angular_quaternion_err.append(angular_diff_deg)
+
     def cm_degree_5_metric(self, pose_pred, pose_targets):
         # This line is to make sure the Z Value is positive(object points towards the camera)
         if(pose_pred[2,3]<0):
@@ -90,6 +113,7 @@ class Evaluator:
         trace = trace if trace <= 3 else 3
         trace = trace if trace >= -1 else -1
         angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+        self.angular_rotation_err.append(angular_distance)
         self.cmd5.append(translation_distance < 5 and angular_distance < 5)
 
     def mask_iou(self, output, batch):
@@ -132,6 +156,7 @@ class Evaluator:
         self.cm_degree_5_metric(pose_pred, pose_gt)
         self.mask_iou(output, batch)
         self.average_error(pose_pred, pose_gt)
+        self.quaternion_angular_err(pose_pred, pose_gt)
 
     def summarize(self):
         proj2d = np.mean(self.proj2d)
@@ -141,6 +166,10 @@ class Evaluator:
         trans_err = np.mean(self.trans_err, axis=0)
         trans_std = np.std(self.trans_err, axis=0)
 
+        angular_quat = np.mean(self.angular_quaternion_err)
+        angular_rotation = np.mean(self.angular_rotation_err)
+        angular_rotation_std = np.std(self.angular_rotation_err)
+
         print('2d projections metric: {:.3f}'.format(proj2d))
         print('ADD metric: {:.3f}'.format(add))
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
@@ -149,6 +178,9 @@ class Evaluator:
         print('Translation Error (X-axis): {:.1f} mm, std {:.1f}'.format(trans_err[0] * 1000, trans_std[0] * 1000))
         print('Translation Error (Y-axis): {:.1f} mm, std {:.1f}'.format(trans_err[1] * 1000, trans_std[1] * 1000))
         print('Translation Error (Z-axis): {:.1f} mm, std {:.1f}'.format(trans_err[2] * 1000, trans_std[2] * 1000))
+
+        print('Angular Error (quaternion): {:.1f} deg'.format(angular_quat))
+        print('Angular Error (rotation)  : {:.1f} deg, std {:.1f}'.format(angular_rotation, angular_rotation_std))
 
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
