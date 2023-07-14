@@ -17,12 +17,11 @@ The structure of this project is described in [project_structure.md](project_str
 
 ## Installation
 
-One way is to set up the environment with docker. See [this](https://github.com/zju3dv/clean-pvnet/tree/master/docker).
-
-Thanks **Floris Gaisser** for providing the docker implementation.
+One way is to set up the environment with docker. See [this](https://github.com/yangfei4/clean-pvnet/tree/master/docker).
 
 Another way is to use the following commands.
-
+<details>
+<summary> Click me to expand ...</summary>
 1. Set up the python environment:
     ```
     conda create -n pvnet python=3.7
@@ -71,7 +70,7 @@ Another way is to use the following commands.
     ln -s /path/to/cache cache
     ln -s /path/to/SUN2012pascalformat sun
     ```
-
+</details>
 
 ## Training on the custom object
 
