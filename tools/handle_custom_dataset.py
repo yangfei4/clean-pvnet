@@ -45,8 +45,9 @@ def record_ann(model_meta, img_id, ann_id, images, annotations):
     corner_3d = model_meta['corner_3d']
     center_3d = model_meta['center_3d']
     fps_3d = model_meta['fps_3d']
-    K = model_meta['K']
+    # K = model_meta['K']
 
+    k_dir = os.path.join(data_root, 'k')
     pose_dir = os.path.join(data_root, 'pose')
     rgb_dir = os.path.join(data_root, 'rgb')
     mask_dir = os.path.join(data_root, 'mask')
@@ -64,6 +65,8 @@ def record_ann(model_meta, img_id, ann_id, images, annotations):
 
         pose_path = os.path.join(pose_dir, 'pose{}.npy'.format(ind))
         pose = np.load(pose_path)
+        k_path = os.path.join(k_dir, 'k{}.npy'.format(ind))
+        K = np.load(k_path)
         corner_2d = base_utils.project(corner_3d, K, pose)
         center_2d = base_utils.project(center_3d[None], K, pose)[0]
         fps_2d = base_utils.project(fps_3d, K, pose)
@@ -85,9 +88,8 @@ def record_ann(model_meta, img_id, ann_id, images, annotations):
 
 def custom_to_coco(data_root):
     model_path = os.path.join(data_root, 'model.ply')
-
     renderer = OpenGLRenderer(model_path)
-    K = np.loadtxt(os.path.join(data_root, 'camera.txt'))
+    # K = np.loadtxt(os.path.join(data_root, 'camera.txt'))
 
     model = renderer.model['pts'] / 1000
     corner_3d = get_model_corners(model)
@@ -95,7 +97,7 @@ def custom_to_coco(data_root):
     fps_3d = np.loadtxt(os.path.join(data_root, 'fps.txt'))
 
     model_meta = {
-        'K': K,
+        # 'K': K,
         'corner_3d': corner_3d,
         'center_3d': center_3d,
         'fps_3d': fps_3d,
