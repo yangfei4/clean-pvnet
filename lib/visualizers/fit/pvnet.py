@@ -69,13 +69,15 @@ class Visualizer:
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         mask = output['seg'][0][0].detach().cpu().numpy()
         
-        K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
-                      [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
-                      [0.00000e+00, 0.00000e+00, 1.00000e+00]])
+        # K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
+        #               [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
+        #               [0.00000e+00, 0.00000e+00, 1.00000e+00]])
         K = np.array([[21971.333024, 0, 1.28000e+02/2], 
                       [0, 22025.144687, 1.28000e+02/2],
                       [0, 0, 1]])
-        
+        K = np.array([[21971.333024, 0, 2107+64],  # u=2353.100109 v=1917.666411
+                      [0, 22025.144687, 1323+64],
+                      [0, 0, 1]])
         img_id = int(batch_example['img_id'][0])
         anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
         kpt_3d = np.concatenate([anno['fps_3d'], [anno['center_3d']]], axis=0)
@@ -176,7 +178,6 @@ class Visualizer:
 
         pose_gt = np.array(anno['pose'])
 
-        corner_3d = np.array(anno['corner_3d'])
         corner_3d = np.array(anno['corner_3d'])
         corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
 
