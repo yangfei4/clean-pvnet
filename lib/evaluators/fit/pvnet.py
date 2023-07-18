@@ -90,14 +90,35 @@ class Evaluator:
         R2 = pose_targets[:, :3]
 
         # Convert rotation matrices to quaternion representations
-        quat1 = Rotation.from_matrix(R1).as_quat()
-        quat2 = Rotation.from_matrix(R2).as_quat()
+        Q1 = Rotation.from_matrix(R1).as_quat()
+        Q2 = Rotation.from_matrix(R2).as_quat()
 
         # Compute the dot product between the quaternions
-        quat_diff = np.abs(np.multiply(quat1, quat2)) 
+        # quat_diff = np.abs(np.multiply(quat1, quat2))
+        # Compute the dot product between Q1 and Q2.conjugate
+        Q2_conjugate = np.array([Q2[0], -Q2[1], -Q2[2], -Q2[3]])
+        
+
+        def dot_product(q1, q2):
+            return q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
+
+        def quaternion_multiply(q1, q2):
+            w1, x1, y1, z1 = q1
+            w2, x2, y2, z2 = q2
+
+            w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+            x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+            y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
+            z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
+
+            return np.array([w, x, y, z])
 
         # Compute the angular difference (in radians)
-        angular_diff = 2 * np.arccos(np.sum(quat_diff))
+        # Q_diff = quaternion_multiply(Q1, Q2_conjugate)
+        # angular_diff = 2 * np.arccos(Q_diff[0])
+    
+        Q_diff = dot_product(Q1, Q2)
+        angular_diff = 2 * np.arccos(Q_diff)
 
         # Convert angular difference to degrees
         angular_diff_deg = np.rad2deg(angular_diff)
@@ -163,10 +184,12 @@ class Evaluator:
         add = np.mean(self.add)
         cmd5 = np.mean(self.cmd5)
         ap = np.mean(self.mask_ap)
-        trans_err = np.mean(self.trans_err, axis=0)
+        trans_err = np.mean(self.trans_err, axis=0) * 1000
         trans_std = np.std(self.trans_err, axis=0)
 
         angular_quat = np.mean(self.angular_quaternion_err)
+        angular_quat_std = np.std(self.angular_quaternion_err)
+
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
 
@@ -175,12 +198,12 @@ class Evaluator:
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
         print('mask ap90: {:.3f}'.format(ap))
 
-        print('Translation Error (X-axis): {:.1f} mm, std {:.1f}'.format(trans_err[0] * 1000, trans_std[0] * 1000))
-        print('Translation Error (Y-axis): {:.1f} mm, std {:.1f}'.format(trans_err[1] * 1000, trans_std[1] * 1000))
-        print('Translation Error (Z-axis): {:.1f} mm, std {:.1f}'.format(trans_err[2] * 1000, trans_std[2] * 1000))
+        print('Translation Error (X-axis): {:.2f} mm, std {:.3f}'.format(trans_err[0], trans_std[0]))
+        print('Translation Error (Y-axis): {:.2f} mm, std {:.3f}'.format(trans_err[1], trans_std[1]))
+        print('Translation Error (Z-axis): {:.2f} mm, std {:.3f}'.format(trans_err[2], trans_std[2]))
 
-        print('Angular Error (quaternion): {:.1f} deg'.format(angular_quat))
-        print('Angular Error (rotation)  : {:.1f} deg, std {:.1f}'.format(angular_rotation, angular_rotation_std))
+        print('Angular Error (quaternion): {:.2f} deg, std {:.3f}'.format(angular_quat, angular_quat_std))
+        print('Angular Error (rotation)  : {:.2f} deg, std {:.3f}'.format(angular_rotation, angular_rotation_std))
 
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
