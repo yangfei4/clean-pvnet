@@ -186,12 +186,12 @@ class Evaluator:
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
         print('mask ap90: {:.3f}'.format(ap))
 
-        print('Translation Error (X-axis): {:.2f} mm, std {:.3f}'.format(trans_err[0], trans_std[0]))
-        print('Translation Error (Y-axis): {:.2f} mm, std {:.3f}'.format(trans_err[1], trans_std[1]))
-        print('Translation Error (Z-axis): {:.2f} mm, std {:.3f}'.format(trans_err[2], trans_std[2]))
+        print('Translation Error (X-axis): {:.2f} mm, std {:.2f}'.format(trans_err[0], trans_std[0]))
+        print('Translation Error (Y-axis): {:.2f} mm, std {:.2f}'.format(trans_err[1], trans_std[1]))
+        print('Translation Error (Z-axis): {:.2f} mm, std {:.2f}'.format(trans_err[2], trans_std[2]))
 
-        print('Angular Error (rotation)  : {:.2f} deg, std {:.3f}'.format(angular_rotation, angular_rotation_std))
-        print('Angular Error (quaternion): {:.2f} deg, std {:.3f}'.format(angular_quat, angular_quat_std))
+        print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_rotation, angular_rotation_std))
+        print('Angular Error (quaternion): {:.2f} deg, std {:.2f}'.format(angular_quat, angular_quat_std))
 
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
