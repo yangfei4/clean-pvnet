@@ -29,8 +29,6 @@ class Visualizer:
         K = np.array(anno['K'])
         pose_gt = np.array(anno['pose'])
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
         # shift predicted location to Ground True
         # pose_pred[:,3] = pose_gt[:,3]
         self.compute_dif(pose_pred, pose_gt)
@@ -114,8 +112,6 @@ class Visualizer:
         corner_3d = np.array(anno['corner_3d'])
 
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
 
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
         print("Camera Intrinsics:")
