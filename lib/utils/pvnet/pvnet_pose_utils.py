@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 
-def pnp(points_3d, points_2d, camera_matrix, method=cv2.SOLVEPNP_ITERATIVE):
+def pnp(points_3d, points_2d, camera_matrix, method=cv2.SOLVEPNP_EPNP):
     try:
         dist_coeffs = pnp.dist_coeffs
     except:
@@ -21,19 +21,8 @@ def pnp(points_3d, points_2d, camera_matrix, method=cv2.SOLVEPNP_ITERATIVE):
                                camera_matrix,
                                dist_coeffs,
                                flags=method)
-    # , None, None, False, cv2.SOLVEPNP_UPNP)
-
-    # R_exp, t, _ = cv2.solvePnPRansac(points_3D,
-    #                            points_2D,
-    #                            cameraMatrix,
-    #                            distCoeffs,
-    #                            reprojectionError=12.0)
 
     R, _ = cv2.Rodrigues(R_exp)
-    # trans_3d=np.matmul(points_3d,R.transpose())+t.transpose()
-    # if np.max(trans_3d[:,2]<0):
-    #     R=-R
-    #     t=-t
 
     return np.concatenate([R, t], axis=-1)
 
