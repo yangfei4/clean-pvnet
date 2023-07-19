@@ -39,9 +39,6 @@ class Evaluator:
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
 
     def average_error(self, pose_pred, pose_gt):
-        # This line is to make sure the Z Value is positive(object points towards the camera)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
         translation_error = np.abs(pose_pred[:, 3] - pose_gt[:, 3])
 
         # rotation_pred = Rotation.from_matrix(pose_pred[:, :3])
@@ -64,10 +61,6 @@ class Evaluator:
         # diameter = self.diameter * percentage
         diameter = 10 / 1000
     
-        # This line is to make sure the Z Value is positive(object points towards the camera)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
-
         model_pred = np.dot(self.model, pose_pred[:, :3].T) + pose_pred[:, 3]
         model_targets = np.dot(self.model, pose_targets[:, :3].T) + pose_targets[:, 3]
 
@@ -83,9 +76,6 @@ class Evaluator:
             self.add.append(mean_dist < diameter)
 
     def quaternion_angular_err(self, pose_pred, pose_targets):
-        # This line is to make sure the Z Value is positive(object points towards the camera)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
         R1 = pose_pred[:, :3]
         R2 = pose_targets[:, :3]
 
@@ -125,9 +115,6 @@ class Evaluator:
         self.angular_quaternion_err.append(angular_diff_deg)
 
     def cm_degree_5_metric(self, pose_pred, pose_targets):
-        # This line is to make sure the Z Value is positive(object points towards the camera)
-        if(pose_pred[2,3]<0):
-            pose_pred *= -1
         translation_distance = np.linalg.norm(pose_pred[:, 3] - pose_targets[:, 3]) * 100
         rotation_diff = np.dot(pose_pred[:, :3], pose_targets[:, :3].T)
         trace = np.trace(rotation_diff)
@@ -202,8 +189,8 @@ class Evaluator:
         print('Translation Error (Y-axis): {:.2f} mm, std {:.3f}'.format(trans_err[1], trans_std[1]))
         print('Translation Error (Z-axis): {:.2f} mm, std {:.3f}'.format(trans_err[2], trans_std[2]))
 
-        print('Angular Error (quaternion): {:.2f} deg, std {:.3f}'.format(angular_quat, angular_quat_std))
         print('Angular Error (rotation)  : {:.2f} deg, std {:.3f}'.format(angular_rotation, angular_rotation_std))
+        print('Angular Error (quaternion): {:.2f} deg, std {:.3f}'.format(angular_quat, angular_quat_std))
 
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
