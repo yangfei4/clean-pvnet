@@ -171,8 +171,9 @@ class Evaluator:
         add = np.mean(self.add)
         cmd5 = np.mean(self.cmd5)
         ap = np.mean(self.mask_ap)
-        trans_err = np.mean(self.trans_err, axis=0) * 1000
-        trans_std = np.std(self.trans_err, axis=0)
+        trans_list = np.array(self.trans_err) * 1000 # m to mm
+        trans_err = np.mean(trans_list, axis=0)
+        trans_std = np.std(trans_list, axis=0)
 
         angular_quat = np.mean(self.angular_quaternion_err)
         angular_quat_std = np.std(self.angular_quaternion_err)
