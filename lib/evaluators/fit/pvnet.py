@@ -27,6 +27,9 @@ class Evaluator:
         self.model = pvnet_data_utils.get_ply_model(model_path)
         # self.diameter = np.loadtxt('data/custom/diameter.txt').item()
 
+        self.T_gt = []
+        self.T_pre = []
+
         self.proj2d = []
         self.add = []
         self.icp_add = []
@@ -38,17 +41,25 @@ class Evaluator:
         self.trans_err = [] # meter
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
 
-    def average_error(self, pose_pred, pose_gt):
-        translation_error = np.abs(pose_pred[:, 3] - pose_gt[:, 3])
+    def average_error(self, pose_pre, pose_gt):
+        self.T_gt.append(pose_gt)
+        self.T_pre.append(pose_pre)
 
-        # rotation_pred = Rotation.from_matrix(pose_pred[:, :3])
-        # rotation_gt = Rotation.from_matrix(pose_gt[:, :3])
-        # euler_error = rotation_pred.inv() * rotation_gt
-        # euler_error = euler_error.as_euler('zyx', degrees=True)
-        # euler_error = np.abs(euler_error)
-
+        t_pre = pose_pre[:, 3]
+        t_gt = pose_gt[:, 3]
+        translation_error = np.abs(t_pre - t_gt)
+        # if(translation_error[2] > 10): # outliers, error > 100m
+        #     return
         self.trans_err.append(translation_error)
-        # self.euler_err.append(euler_error)
+        
+        R_pre_in_world = pose_pre[:, :3]
+        R_gt_in_world = pose_gt[:, :3]
+        R_pre_2_gt = np.dot(R_pre_in_world, R_gt_in_world.T)
+        trace = np.trace(R_pre_2_gt)
+        trace = trace if trace <= 3 else 3
+        trace = trace if trace >= -1 else -1
+        angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+        self.angular_rotation_err.append(angular_distance)
 
     def projection_2d(self, pose_pred, pose_targets, K, threshold=5):
         model_2d_pred = pvnet_pose_utils.project(self.model, K, pose_pred)
@@ -75,41 +86,20 @@ class Evaluator:
         else:
             self.add.append(mean_dist < diameter)
 
-    def quaternion_angular_err(self, pose_pred, pose_targets):
-        R1 = pose_pred[:, :3]
-        R2 = pose_targets[:, :3]
+    def quaternion_angular_err(self, T_pre, T_gt):
+        R1 = T_pre[:, :3]
+        R2 = T_gt[:, :3]
 
         # Convert rotation matrices to quaternion representations
         Q1 = Rotation.from_matrix(R1).as_quat()
         Q2 = Rotation.from_matrix(R2).as_quat()
 
         # Compute the dot product between the quaternions
-        # quat_diff = np.abs(np.multiply(quat1, quat2))
-        # Compute the dot product between Q1 and Q2.conjugate
-        Q2_conjugate = np.array([Q2[0], -Q2[1], -Q2[2], -Q2[3]])
-        
-
         def dot_product(q1, q2):
             return q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
-
-        def quaternion_multiply(q1, q2):
-            w1, x1, y1, z1 = q1
-            w2, x2, y2, z2 = q2
-
-            w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-            x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-            y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
-            z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
-
-            return np.array([w, x, y, z])
-
-        # Compute the angular difference (in radians)
-        # Q_diff = quaternion_multiply(Q1, Q2_conjugate)
-        # angular_diff = 2 * np.arccos(Q_diff[0])
-    
         Q_diff = dot_product(Q1, Q2)
-        angular_diff = 2 * np.arccos(Q_diff)
 
+        angular_diff = 2 * np.arccos(Q_diff)
         # Convert angular difference to degrees
         angular_diff_deg = np.rad2deg(angular_diff)
         self.angular_quaternion_err.append(angular_diff_deg)
@@ -121,7 +111,6 @@ class Evaluator:
         trace = trace if trace <= 3 else 3
         trace = trace if trace >= -1 else -1
         angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
-        self.angular_rotation_err.append(angular_distance)
         self.cmd5.append(translation_distance < 5 and angular_distance < 5)
 
     def mask_iou(self, output, batch):
@@ -171,10 +160,10 @@ class Evaluator:
         add = np.mean(self.add)
         cmd5 = np.mean(self.cmd5)
         ap = np.mean(self.mask_ap)
+
         trans_list = np.array(self.trans_err) * 1000 # m to mm
         trans_err = np.mean(trans_list, axis=0)
         trans_std = np.std(trans_list, axis=0)
-
         angular_quat = np.mean(self.angular_quaternion_err)
         angular_quat_std = np.std(self.angular_quaternion_err)
 
@@ -197,6 +186,12 @@ class Evaluator:
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
         # print('Euler Angle Error (Y-axis): {:.1f} deg'.format(euler_err[1]))
         # print('Euler Angle Error (Z-axis): {:.1f} deg'.format(euler_err[2]))
+
+        # np.save(f"data/evaluation/trans_err.npy", trans_list)
+        # np.save(f"data/evaluation/ang_R_err.npy", self.angular_rotation_err)
+        # np.save(f"data/evaluation/ang_Q_err.npy", self.angular_quaternion_err)
+        np.save(f"data/evaluation/T_gt.npy", self.T_gt)
+        np.save(f"data/evaluation/T_pre.npy", self.T_pre)
 
         if self.icp_render is not None:
             print('ADD metric after icp: {:.3f}'.format(np.mean(self.icp_add)))
