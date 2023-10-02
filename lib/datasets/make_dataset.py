@@ -21,7 +21,9 @@ def _dataset_factory(data_source, task):
 
 
 def make_dataset(cfg, dataset_name, transforms, is_train=True):
-    args = DatasetCatalog.get(dataset_name)
+    dataset_log = DatasetCatalog(cfg_new=cfg)
+    # args = DatasetCatalog.get(dataset_name)
+    args = dataset_log.get(name=dataset_name)
     data_source = args['id']
     dataset = _dataset_factory(data_source, cfg.task)
     del args['id']

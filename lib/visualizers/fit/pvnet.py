@@ -1,5 +1,5 @@
 from lib.datasets.dataset_catalog import DatasetCatalog
-from lib.config import cfg
+from lib.config import cfg as default_cfg
 import pycocotools.coco as coco
 import numpy as np
 from lib.utils.pvnet import pvnet_config
@@ -15,8 +15,10 @@ std = pvnet_config.std
 
 class Visualizer:
 
-    def __init__(self):
-        args = DatasetCatalog.get(cfg.test.dataset)
+    def __init__(self, cfg=None):
+        self.cfg = cfg or default_cfg
+        dataset_log = DatasetCatalog(cfg_new=self.cfg)
+        args = dataset_log.get(self.cfg.test.dataset)
         self.ann_file = args['ann_file']
         self.coco = coco.COCO(self.ann_file)
 
@@ -91,18 +93,20 @@ class Visualizer:
         # output: 
         # 'seg'    : 1 x 2 x img_size x img_size
         # 'vertex' : 1 x 18 x img_size x img_size
-        # 'mask'   : 1 x 2 x img_size x img_size
+        # 'mask'   : 1 x img_size x img_size
         # 'kpt_2d' : 1 x 9 x 2
         # 'var'    : 1 x 9 x 2 x 2 
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
-        mask = output['seg'][0][0].detach().cpu().numpy()
+        segmentation = output['seg'][0].detach().cpu().numpy()
+        mask = output['mask'][0].detach().cpu().numpy()
+        # vertex = output['vertex'][0][0].detach().cpu().numpy()
         
         # K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
         #               [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
         #               [0.00000e+00, 0.00000e+00, 1.00000e+00]])
-        K = np.array([[21971.333024, 0, 1.28000e+02/2], 
-                      [0, 22025.144687, 1.28000e+02/2],
-                      [0, 0, 1]])
+        # K = np.array([[21971.333024, 0, 1.28000e+02/2], 
+        #               [0, 22025.144687, 1.28000e+02/2],
+        #               [0, 0, 1]])
         K = np.array([[21971.333024, 0, 2107+64],  # u=2353.100109 v=1917.666411
                       [0, 22025.144687, 1323+64],
                       [0, 0, 1]])
@@ -123,6 +127,9 @@ class Visualizer:
         print("Euler angle:")
         print(euler_angles)
 
+        ###########################
+        # overall result
+        ###########################
         plt.figure(0)
         plt.subplot(221)
         plt.imshow(input_img)
@@ -132,7 +139,7 @@ class Visualizer:
         plt.subplot(222)
         plt.imshow(mask)
         plt.axis('off')
-        plt.title('Segmentation')
+        plt.title('Predicted Mask')
 
         plt.subplot(223)
         plt.imshow(input_img)
@@ -159,7 +166,36 @@ class Visualizer:
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
         plt.axis('off')
         plt.title('Pose Prediction')
-        
+        # plt.savefig("/pvnet/data/evaluation/topshell.png")
+
+
+        ###########################
+        # vertex
+        ###########################
+        plt.figure(1)
+        # from torchvision.utils import make_grid
+        # import torchvision
+        # Grid = make_grid(output['vertex'].permute(1,0,2,3), nrow=9, padding=25)
+        # vector_map = torchvision.transforms.ToPILImage()(Grid.cpu())
+        # vector_map.show()
+        # plt.imshow(vector_map)
+
+
+        ###########################
+        # segmentaion map, note:
+        # mask = torch.argmax(output['seg'], 1)
+        ###########################
+        plt.figure(2)
+        plt.subplot(121)
+        plt.imshow(segmentation[0])
+        plt.axis('off')
+        plt.title('Segmentaion 1')
+
+        plt.subplot(122)
+        plt.imshow(segmentation[1])
+        plt.axis('off')
+        plt.title('Segmentaion 2')
+
         plt.show()
         # return fig
 
@@ -192,6 +228,34 @@ class Visualizer:
         plt.imshow(inp)
         plt.scatter(fps_2d[:, 0], fps_2d[:, 1], color='red', s=10)
         plt.savefig('test.jpg')
+        
+
+        # # Assuming 'output' is your PyTorch tensor
+        # output = output['vertex'][0].detach().cpu().numpy()  # Convert PyTorch tensor to NumPy array
+
+        # # Extract vectors from the array
+        # vectors = output[1] - output[0]  # Compute vectors relative to the first one (output[0])
+
+        # # Extract x and y components of the vectors
+        # x_components = vectors[:, 0]
+        # y_components = vectors[:, 1]
+
+        # # Create a figure and axis
+        # plt.figure(1)
+        # fig, ax = plt.subplots()
+
+        # # Plot arrows for each vector
+        # for i, (x, y) in enumerate(zip(x_components, y_components)):
+        #     ax.arrow(output[0, 1], output[0, 2], x, y, head_width=5, head_length=5, fc='blue', ec='blue', label=f'Keypoint {i + 1}')
+        # # Set axis limits and labels
+        # ax.set_xlim(output[0, 1] - 10, output[0, 1] + 10)
+        # ax.set_ylim(output[0, 2] - 10, output[0, 2] + 10)
+        # ax.set_xlabel('X')
+        # ax.set_ylabel('Y')
+        # # Add legend
+        # ax.legend()
+        
+
         plt.close(0)
 
     def visualize_gt(self, batch):
