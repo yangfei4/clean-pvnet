@@ -2,6 +2,7 @@ from yacs.config import CfgNode as CN
 import argparse
 import os
 import open3d
+import copy
 
 cfg = CN()
 
@@ -137,6 +138,20 @@ def parse_cfg(cfg, args):
     cfg.record_dir = os.path.join(cfg.record_dir, cfg.task, cfg.model)
     cfg.result_dir = os.path.join(cfg.result_dir, cfg.task, cfg.model)
 
+# def save_cfg_to_yaml(cfg, output_filepath):
+#     import yaml
+#     """
+#     Save the CfgNode configuration object to a .yaml file.
+
+#     :param cfg: The configuration object.
+#     :param output_filepath: The path where the .yaml file will be saved.
+#     """
+#     with open(output_filepath, 'w') as file:
+#         yaml.dump(cfg, file)
+
+def save_cfg_to_yaml(cfg, output_filepath):
+    with open(output_filepath, 'w') as file:
+        file.write(cfg.dump())
 
 def make_cfg(args):
     cfg.merge_from_file(args.cfg_file)
@@ -146,6 +161,13 @@ def make_cfg(args):
     parse_cfg(cfg, args)
     return cfg
 
+def make_new_cfg(cfg_temp, args, config_path):
+    cfg_temp.merge_from_file(config_path)
+    opts_idx = [i for i in range(0, len(args.opts), 2) if args.opts[i].split('.')[0] in cfg_temp.keys()]
+    opts = sum([[args.opts[i], args.opts[i + 1]] for i in opts_idx], [])
+    cfg_temp.merge_from_list(opts)
+    parse_cfg(cfg_temp, args)
+    return cfg_temp
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cfg_file", default="configs/default.yaml", type=str)
@@ -156,4 +178,9 @@ parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
 args = parser.parse_args()
 if len(args.type) > 0:
     cfg.task = "run"
+
+categories = ['mainshell', 'topshell', 'insert_mold']
+cfgs = [make_new_cfg(copy.deepcopy(cfg), args, f"configs/{config_path}.yaml") for config_path in categories]
+
 cfg = make_cfg(args)
+# save_cfg_to_yaml(cfg, 'output_config.yaml')
