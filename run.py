@@ -37,20 +37,43 @@ def run_inference():
     from lib.networks import make_network
     from lib.utils.net_utils import load_network
     from PIL import Image
-    from lib.config import cfg
     from lib.visualizers import make_visualizer
-    # from lib.datasets.transforms import Compose, ToTensor, Normalize
     from lib.datasets.transforms import make_transforms
-    
-    # matplotlib.use('Agg')
-    # image_path = "/pvnet/data/FIT/insert_mold_256_test/rgb/1.png"
-    
-    # image_path = "/pvnet/data/FIT/image_basler_5k_256x256_inser.png"
-    # image_path = "/pvnet/data/FIT/Zed2i_128x128_01.png"
-    
-    image_path = "/pvnet/data/FIT/image_basler_5k_128x128_01.png"
+    from lib.datasets import make_data_loader
+
+    # image_path = "/pvnet/data/FIT/image_basler_5k_128x128_04.png"
+    # image_path = "/pvnet/data/FIT/mainshell_04.png"
+    # image_path = "/pvnet/data/FIT/topshell_04.png"
+    # image_path = "/pvnet/data/FIT/insert_mold_2107_1323.png"
+
+    # lagest error
+    # image_path = "/pvnet/data/evaluation/insert_mold_487.png"
+    # image_path = "/pvnet/data/evaluation/mainshell_1421.png"
+    # image_path = "/pvnet/data/evaluation/topshell_1984.png"
+
+    # image_path = "/pvnet/data/FIT/test_crop/1-dim128x128_u1921_v2171_two_parts.png"
+    # image_path = "/pvnet/data/FIT/test_crop/2-dim128x128_u1792_v2397_two_parts.png"
+    # image_path = "/pvnet/data/FIT/test_crop/3-dim128x128_u2154_v2089_two_parts.png"
+    # image_path = "/pvnet/data/FIT/test_crop/4-dim128x128_u1963_v2171_two_parts.png"
+
+    # image_path = "/pvnet/data/FIT/test_crop/1-dim128x128_u2243_v2089_truncated.png"
+    # image_path = "/pvnet/data/FIT/test_crop/2-dim128x128_u1888_v1897_truncated.png"
+    # image_path = "/pvnet/data/FIT/test_crop/3-dim128x128_u2011_v2205_truncated.png"
+    # image_path = "/pvnet/data/FIT/test_crop/4-dim128x128_u1580_v2232_truncated.png"
+
+    image_path = "/pvnet/data/FIT/insert_mold_640x480.png"
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
+    data_loader = make_data_loader(cfg, is_train=False)
+    
+    batch_example = None # will be used to load kpts annotation
+    for batch in data_loader:
+        for k in batch:
+            if k != 'meta':
+                batch[k] = batch[k].cuda()
+        batch_example = batch
+        break
+
     network.eval()
 
     image = Image.open(image_path).convert('RGB')
@@ -66,13 +89,11 @@ def run_inference():
 
     with torch.no_grad():
         output = network(input_tensor)
-    # Process the output and visualize the results
-    # ...
+
     visualizer = make_visualizer(cfg)
     # fig = visualizer.visualize_output(image, output)
-    visualizer.visualize_output(image, output)
+    visualizer.visualize_output(image, output, batch_example)
 
-    # import pdb;pdb.set_trace()
 
 
 def run_network():
@@ -363,4 +384,3 @@ def run_demo():
 
 if __name__ == '__main__':
     globals()['run_'+args.type]()
-
