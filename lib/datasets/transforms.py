@@ -124,11 +124,11 @@ def make_transforms(cfg, is_train):
     if is_train is True:
         transform = Compose(
             [
-                RandomBlur(0.5),
                 ColorJitter(0.2, 0.01, 0.1, 0.1),
-                SparkleNoise(probability=0.05, intensity_range=(100, 150)),
+                SparkleNoise(probability=0.3, intensity_range=(50, 150)),
+                RandomBlur(0.9),
                 ToTensor(),
-                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ]
         )
     else:
@@ -138,5 +138,4 @@ def make_transforms(cfg, is_train):
                 Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
-
     return transform
