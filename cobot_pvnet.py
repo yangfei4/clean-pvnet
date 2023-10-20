@@ -19,14 +19,7 @@ from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
 
 def predict_to_pose(pvnet_output, K_cam, input_img, is_vis: bool=False):
-    # output: 
-    # 'seg'    : 1 x 2 x img_size x img_size
-    # 'vertex' : 1 x 18 x img_size x img_size
-    # 'mask'   : 1 x img_size x img_size
-    # 'kpt_2d' : 1 x 9 x 2
-    # 'var'    : 1 x 9 x 2 x 2 
-
-    kpt_3d = np.concatenate([cfg.fps_3d, cfg.center_3d], axis=0)
+    kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
@@ -88,16 +81,15 @@ def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
     # plt.savefig("/pvnet/data/evaluation/topshell.png")
 
     ###########################
-    # vertex
+    # vertex: currently makes no sense
     ###########################
-    plt.figure(1)
+    # plt.figure(1)
     # from torchvision.utils import make_grid
     # import torchvision
     # Grid = make_grid(output['vertex'].permute(1,0,2,3), nrow=9, padding=25)
     # vector_map = torchvision.transforms.ToPILImage()(Grid.cpu())
     # vector_map.show()
     # plt.imshow(vector_map)
-
 
     ###########################
     # segmentaion map, note:
@@ -119,19 +111,8 @@ def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
 def run_inference(cfg, image, K_cam):
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
-    # data_loader = make_data_loader(cfg, is_train=False)
-    # batch_example = None # will be used to load kpts annotation
-    # for batch in data_loader:
-    #     for k in batch:
-    #         if k != 'meta':
-    #             batch[k] = batch[k].cuda()
-    #     batch_example = batch
-    #     break
 
     network.eval()
-
-    # image = Image.open(image_path).convert('RGB')
-    # Preprocess the image
 
     transform = make_transforms(cfg, is_train=False)
     processed_image, _, _ = transform(image)
@@ -142,11 +123,7 @@ def run_inference(cfg, image, K_cam):
 
     with torch.no_grad():
         pvnet_output = network(input_tensor)
-
-    return predict_to_pose(pvnet_output, K_cam)
-    # visualizer = make_visualizer(cfg)
-    # pose, visualization = visualizer.visualize_output(image, output, batch_example, K_cam)
-    return pose, visualization
+    return predict_to_pose(pvnet_output, K_cam, image, is_vis=True)
 
 
 if __name__ == '__main__':
@@ -157,7 +134,7 @@ if __name__ == '__main__':
         'score': a float representing the score.
         'image_128x128': a 2D numpy array representing an image.
     """
-    load_path = 'maskrcnn.json'
+    load_path = 'maskrcnn_topshell.json'
 
     # Load the data from the specified path
     with open(load_path, 'r') as f:
@@ -176,9 +153,9 @@ if __name__ == '__main__':
         K_cam = np.array([[10704.062350, 0, item['uv'][0]],
                     [0, 10727.438047, item['uv'][1]],
                     [0, 0, 1]])
-        pose, visualization = globals()['run_'+args.type](cfg, instance['image_128x128'], K_cam)
+        pose = globals()['run_'+args.type](cfg, instance['image_128x128'], K_cam)
         pose_list.append(pose)
-        if(category == 2):
+        if(category == 1): # 0: mainshell, 1: topshell, 2: insert_mold
             z.append(pose[2,3])
     
     plt.figure()
@@ -186,7 +163,7 @@ if __name__ == '__main__':
     plt.hist(z, bins=20)
     plt.xlabel('z estimation (m)')
     plt.ylabel('occurrence count')
-    plt.title('z estimation distribution for inset_mold')
+    plt.title('z estimation distribution')
     # plot a vertical distance line for a ground truth with text
     plt.axvline(x=1.473, color='r', linestyle='--')
     plt.show()
