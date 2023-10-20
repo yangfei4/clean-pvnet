@@ -16,19 +16,117 @@ from lib.utils.net_utils import load_network
 from lib.visualizers import make_visualizer
 from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
+from lib.utils.pvnet import pvnet_pose_utils
+
+def predict_to_pose(pvnet_output, K_cam, input_img, is_vis: bool=False):
+    # output: 
+    # 'seg'    : 1 x 2 x img_size x img_size
+    # 'vertex' : 1 x 18 x img_size x img_size
+    # 'mask'   : 1 x img_size x img_size
+    # 'kpt_2d' : 1 x 9 x 2
+    # 'var'    : 1 x 9 x 2 x 2 
+
+    kpt_3d = np.concatenate([cfg.fps_3d, cfg.center_3d], axis=0)
+    kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
+    pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
+
+    print("Camera Intrinsics:")
+    print(K_cam)
+    print("Predicted Pose wrt camera:")
+    print(pose_pred)
+
+    if is_vis:
+        visualize_pose(input_img, pvnet_output, K_cam, pose_pred)
+    return pose_pred
+
+def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
+    corner_3d = cfg.corner_3d
+    kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
+    segmentation = pvnet_output['seg'][0].detach().cpu().numpy()
+    mask = pvnet_output['mask'][0].detach().cpu().numpy()
+    corner_2d_pred = pvnet_pose_utils.project(corner_3d, K_cam, pose_pred)
+
+    ###########################
+    # overall result
+    ###########################
+    plt.figure(0)
+    plt.subplot(221)
+    plt.imshow(input_img)
+    plt.axis('off')
+    plt.title('Input Image')
+
+    plt.subplot(222)
+    plt.imshow(mask)
+    plt.axis('off')
+    plt.title('Predicted Mask')
+
+    plt.subplot(223)
+    plt.imshow(input_img)
+    plt.scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
+    plt.axis('off')
+    plt.title('Key points detection')
+
+    ax = plt.subplot(224)
+    ax.imshow(input_img)
+
+    # Calculate center of bounding box
+    center_x = np.mean(corner_2d_pred[:, 0])
+    center_y = np.mean(corner_2d_pred[:, 1])
+    shift_x = center_x - corner_2d_pred[6, 0]
+    shift_y = center_y - corner_2d_pred[6, 1]
+    # Plot X-axis
+    ax.plot([center_x , corner_2d_pred[2, 0]+shift_x], [center_y, corner_2d_pred[2, 1]+shift_y], color='r', linewidth=1)
+    # Plot Y-axis
+    ax.plot([center_x, corner_2d_pred[4, 0]+shift_x], [center_y, corner_2d_pred[4, 1]+shift_y], color='g', linewidth=1)
+    # Plot Z-axis
+    ax.plot([center_x, corner_2d_pred[7, 0]+shift_x], [center_y, corner_2d_pred[7, 1]+shift_y], color='b', linewidth=1)
+    # Add patches for corner_2d_gt and corner_2d_pred
+    ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
+    ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+    plt.axis('off')
+    plt.title('Pose Prediction')
+    # plt.savefig("/pvnet/data/evaluation/topshell.png")
+
+    ###########################
+    # vertex
+    ###########################
+    plt.figure(1)
+    # from torchvision.utils import make_grid
+    # import torchvision
+    # Grid = make_grid(output['vertex'].permute(1,0,2,3), nrow=9, padding=25)
+    # vector_map = torchvision.transforms.ToPILImage()(Grid.cpu())
+    # vector_map.show()
+    # plt.imshow(vector_map)
+
+
+    ###########################
+    # segmentaion map, note:
+    # mask = torch.argmax(output['seg'], 1)
+    ###########################
+    plt.figure(2)
+    plt.subplot(121)
+    plt.imshow(segmentation[0])
+    plt.axis('off')
+    plt.title('Segmentaion 1')
+
+    plt.subplot(122)
+    plt.imshow(segmentation[1])
+    plt.axis('off')
+    plt.title('Segmentaion 2')
+
+    plt.show()
 
 def run_inference(cfg, image, K_cam):
     network = make_network(cfg).cuda()
     load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
-    data_loader = make_data_loader(cfg, is_train=False)
-    
-    batch_example = None # will be used to load kpts annotation
-    for batch in data_loader:
-        for k in batch:
-            if k != 'meta':
-                batch[k] = batch[k].cuda()
-        batch_example = batch
-        break
+    # data_loader = make_data_loader(cfg, is_train=False)
+    # batch_example = None # will be used to load kpts annotation
+    # for batch in data_loader:
+    #     for k in batch:
+    #         if k != 'meta':
+    #             batch[k] = batch[k].cuda()
+    #     batch_example = batch
+    #     break
 
     network.eval()
 
@@ -43,10 +141,11 @@ def run_inference(cfg, image, K_cam):
     input_tensor = torch.from_numpy(processed_image).unsqueeze(0).cuda().float()
 
     with torch.no_grad():
-        output = network(input_tensor)
+        pvnet_output = network(input_tensor)
 
-    visualizer = make_visualizer(cfg)
-    pose, visualization = visualizer.visualize_output(image, output, batch_example, K_cam)
+    return predict_to_pose(pvnet_output, K_cam)
+    # visualizer = make_visualizer(cfg)
+    # pose, visualization = visualizer.visualize_output(image, output, batch_example, K_cam)
     return pose, visualization
 
 
