@@ -1,6 +1,7 @@
 #!/bin/bash
-container_name=${1:-pvnet}
-# iamge_name=${2:-pvnet_clean}
+container_name=${1:-cobot_vision}
+image_name=${2:-$container_name}
+
 xhost +local:docker 
 echo "starting pvnet docker"
 
@@ -9,7 +10,6 @@ docker run -it \
   --volume=$PWD:/pvnet \
   --privileged=true\
   --env="XAUTHORITY=$XAUTH" \
-	--env=DISPLAY \
   --env="DISPLAY=$DISPLAY" \
 	--env="QT_X11_NO_MITSHM=1" \
 	--runtime=nvidia \
@@ -19,5 +19,5 @@ docker run -it \
   --device=/dev/dri:/dev/dri \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -v /etc/localtime:/etc/localtime:ro \
-    pvnet_clean
-	bash
+  $image_name \
+  bash
