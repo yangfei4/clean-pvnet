@@ -11,6 +11,11 @@ cfg.model = 'hello'
 cfg.model_dir = 'data/model'
 cfg.det_model = ''
 cfg.kpt_model = ''
+cfg.corner_3d = []
+cfg.center_3d = []
+cfg.center_2d = []
+cfg.fps_3d = []
+cfg.fps_2d = []
 
 # network
 cfg.network = 'dla_34'
