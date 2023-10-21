@@ -1,0 +1,22 @@
+
+#############################
+# Detectron2 Settings
+#############################
+MaskRCNN.render = True
+MaskRCNN.part_name = "all"
+MaskRCNN.ann_path = "/data/ham/cobot_dataset_pipeline/data/dataset_v2/train.json"
+MaskRCNN.img_path = "/data/ham/cobot_dataset_pipeline/data/dataset_v2"
+MaskRCNN.ckpt_path = "/data/ham/vision_pipeline/Detectron2_/model_ckpts/real_3k_full.pth"
+MaskRCNN.config_path = "/data/ham/vision_pipeline/Detectron2_/configs/res101_2.yaml"
+MaskRCNN.output_path = './mrcnn_output'
+
+
+
+#ImageListener.FU = 21627.734375
+#ImageListener.FV = 21643.369141
+#ImageListener.U0 = 2353.100109
+#ImageListener.V0 = 1917.666411
+#ImageListener.W = 5472
+#ImageListener.H = 3648
+#ImageListener.z_init = 1.48
+#ImageListener.cobot_dataset_path = "/data/ham/GithubWorkspace/cobot_dataset_pipeline/data/dataset_v2_truncated"
