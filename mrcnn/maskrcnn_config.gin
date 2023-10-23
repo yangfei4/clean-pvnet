@@ -1,0 +1,8 @@
+
+#############################
+# Detectron2 Settings
+#############################
+MaskRCNNWrapper.cfg_path = "/pvnet/mrcnn/configs/res101_1009.yaml"
+MaskRCNNWrapper.ckpt_path = "/pvnet/mrcnn/synthetic_workspace_res101_oct23.pth"
+MaskRCNNWrapper.coco_path = None
+MaskRCNNWrapper.img_path = None
