@@ -114,9 +114,7 @@ ENV PIP_ROOT_USER_ACTION=ignore
 
 RUN python -m pip install Cython==0.28.2 && \
     python -m pip install \
-    yacs==0.1.4 \
     numpy  \
-    torchvision==0.2.1 \
     opencv-python==3.4.2.17 \
     tqdm==4.28.1 \
     pycocotools \
@@ -132,6 +130,10 @@ RUN python -m pip install Cython==0.28.2 && \
     open3d-python==0.5.0.0 \
     tensorboardX==1.2 \
     cffi==1.11.5
+    # USE Detectron2's default installs instead
+    #yacs==0.1.4 \ Use D
+    #torchvision==0.2.1 \
+
 
 RUN python -m pip install transforms3d pillow==8.1.0 ninja
 
