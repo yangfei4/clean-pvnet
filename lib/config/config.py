@@ -185,7 +185,7 @@ if len(args.type) > 0:
     cfg.task = "run"
 
 categories = ['mainshell', 'topshell', 'insert_mold']
-cfgs = (make_new_cfg(copy.deepcopy(cfg), args, f"configs/{config_path}.yaml") for config_path in categories)
+cfgs = tuple([make_new_cfg(copy.deepcopy(cfg), args, f"configs/{config_path}.yaml") for config_path in categories])
 
 cfg = make_cfg(args)
 # save_cfg_to_yaml(cfg, 'output_config.yaml')
