@@ -1,0 +1,2 @@
+#!/bin/bash
+python inference.py ./inference_exp/coco_annotations.json  ./inference_exp/mixed /data/models/CobotVisionPipeline/MaskRCNN/synthetic_workspace_res101_oct23.pth ./configs/res101_1009.yaml --img_path=./inference_exp/000000.png test
