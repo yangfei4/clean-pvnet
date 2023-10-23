@@ -19,5 +19,6 @@ docker run -it \
   --device=/dev/dri:/dev/dri \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -v /etc/localtime:/etc/localtime:ro \
+  -v /data/models:/data/models \
   $image_name \
   bash
