@@ -2,6 +2,7 @@ import os
 import argparse
 import time
 from pathlib import Path
+from typing import Union
 
 import cv2
 import detectron2
@@ -24,6 +25,84 @@ def setup_args():
     parser.add_argument("dataset_name", help="Name of dataset")
     return parser.parse_args()
 
+from matplotlib import pyplot as plt
+def plot_im(img: Union[str, Path, np.ndarray], output_name, figsize=(10,10)):
+    
+    if not isinstance(img, np.ndarray):
+        assert Path(img).exists(), f"{img} is not a valid path"
+        img = cv2.imread(str(img))
+    
+    try:
+        if img.shape[-1] == 3:
+            cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            pass
+    except Exception as e:
+        pass
+    
+    fig = plt.figure(figsize=figsize,tight_layout=True)
+    plt.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+    fig.set_tight_layout(True)
+    plt.imshow(img)
+    plt.savefig(output_name)
+
+
+def concat_images(img_list):
+    """
+    Concatenate numpy images to 4xn grid.
+    :param img_list: list of images as numpy arrays.
+    :return: Concatenated image as numpy array.
+    """
+    # Number of images
+    num_images = len(img_list)
+
+    # If there are no images return None
+    if num_images == 0:
+        return None
+
+    # Calculate the number of columns (n)
+    n_cols = -(-num_images // 4)  # This is equivalent to ceil(num_images / 4)
+
+    # Empty list to store the concatenated images row-wise
+    img_rows = []
+
+    for i in range(4):
+        # Extract each row's images
+        row_imgs = img_list[i*n_cols: (i+1)*n_cols]
+
+        # If there are no more images break the loop
+        if not row_imgs:
+            break
+
+        # If this row is not full, fill with black images
+        while len(row_imgs) < n_cols:
+            # Create a black image of the same shape and type as the first image
+            black_img = np.zeros_like(row_imgs[0])
+            row_imgs.append(black_img)
+
+        # Concatenate this row's images horizontally
+        concatenated_row = np.hstack(row_imgs)
+        img_rows.append(concatenated_row)
+
+    # Concatenate all the rows vertically
+    concatenated_img = np.vstack(img_rows)
+    
+    return concatenated_img
+
+
+def crop_roi(im: np.ndarray, cent, size) -> np.ndarray:
+    if isinstance(size, list) or  isinstance(size, tuple):
+        w, h = size
+    elif isinstance(size, int):
+        w = h = size
+
+    x, y = cent
+    x_off = slice(x - w // 2, x + w // 2)
+    y_off = slice(y - h // 2, y + h // 2)
+    
+    if len(im.shape) == 2:
+        return im[y_off, x_off]
+    return im[y_off, x_off, :]
+
 
 class MaskRCNNWrapper(object):
 
@@ -38,6 +117,11 @@ class MaskRCNNWrapper(object):
         self.__dict__.update(locals())
         self._load_dataset()
         self._load_model()
+
+        # TODO: Update this for the number of tagboards to consider
+        self.TAGBOARD_CENT = (2000, 2200)
+        self.model_input_wh = (2208, 1242)
+        self.call_count = 0
 
     def _load_dataset(self):
         # Load Dataset
@@ -59,23 +143,76 @@ class MaskRCNNWrapper(object):
 
         cfg.MODEL.WEIGHTS = str(self.ckpt_path)
         cfg.OUTPUT_DIR = self.output_dir
+        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7
 
         if not torch.cuda.is_available():
             cfg.MODEL.DEVICE = "cpu"
 
         self.model = DefaultPredictor(cfg)
 
-    def __call__(self, img):
+    def process_pred_for_pvnet(self, predictions, full_res_img, mrcnn_pred_img, crop_dim=128):
+        instances = predictions['instances']
+        threshold = 0.5
+        data_for_pvnet = []
+        img_list = []
+        pred_list = []
 
+        for i in range(len(instances)):
+            instance = instances[i]
+            score = instance.scores.item()
+
+            cls = instance.pred_classes.item()
+            uv = instance.pred_boxes.get_centers().cpu().numpy()[0]
+
+            # Be careful with order of u & v !!!
+            if(score > threshold):
+                # Crop roi around each part & pred mask wrt to cropped input image to mask rcnn
+                u_cropped = int(uv[0])
+                v_cropped = int(uv[1])
+                # iamge_pred_128X128 = result[(v_out-dim//2):(v_out+dim//2), (u_out-dim//2):(u_out+dim//2)]
+                cent_cropped = (u_cropped, v_cropped)
+                roi_pred_128 = crop_roi(mrcnn_pred_img, cent_cropped, crop_dim)
+                pred_list.append(roi_pred_128)
+                
+                # Crop roi around each part  wrt to full resolution input image (before crop)
+                u_tag_cent, v_tag_cent = self.TAGBOARD_CENT
+                width_tag, height_tag = self.model_input_wh
+                u_5k = u_cropped + (u_tag_cent - width_tag  //2)
+                v_5k = v_cropped + (v_tag_cent - height_tag //2)
+                # iamge_128X128 = im[(v-dim//2):(v+dim//2), (u-dim//2):(u+dim//2)]
+                cent_5k = (u_5k,v_5k)
+                roi_5k_to_128 = crop_roi(full_res_img, cent_5k, crop_dim)
+                img_list.append(roi_5k_to_128 )
+
+                pvnet_input= {"class": cls, "uv": uv, "score": score, "image_128x128": roi_5k_to_128 }
+                data_for_pvnet.append(pvnet_input)
+            else:
+                print(f"instance {i} is in low confidence score")
+
+        return data_for_pvnet, pred_list, img_list
+
+
+    def __call__(self, full_res_img):
         # TODO: crop image around tagboard center:
+        img = crop_roi(full_res_img, self.TAGBOARD_CENT, self.model_input_wh)
 
         # Use the model to run inference on the img
         prediction = self.model(img)
         v = Visualizer(img, metadata=self._meta_data)
-        return prediction, v
-        # TODO: crop rois around detected bbox centers
+        output_img = v.draw_instance_predictions(prediction["instances"].to("cpu"))
+        output_img = output_img.get_image()[:, :, ::-1]
 
+        # TODO: crop rois around detected bbox centers
         # TODO: store uv info, rois by class pred
+        data_for_pvnet, pred_list, img_list = self.process_pred_for_pvnet(prediction, full_res_img, output_img)
+        img_grid = concat_images(img_list)
+        plot_im(img_grid, f"roi_5k_to_128_{self.call_count}.png")
+
+        pred_grid = concat_images(pred_list)
+        plot_im(pred_grid, f"roi_preds_128_{self.call_count}.png")
+        self.call_count += 1
+        return prediction, output_img
+
 
 
 if __name__ == '__main__':
@@ -94,7 +231,5 @@ if __name__ == '__main__':
         img = cv2.imread(img_path)
         img = img[:, :, ::-1]
 
-        prediction, v = mrcnn(img)
-        output = v.draw_instance_predictions(prediction["instances"].to("cpu"))
-        output = output.get_image()[:, :, ::-1]
-        cv2.imwrite(str(out_path), output)
+        prediction, output_img = mrcnn(img)
+        cv2.imwrite(str(out_path), output_img)
