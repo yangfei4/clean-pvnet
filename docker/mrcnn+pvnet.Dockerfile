@@ -178,10 +178,7 @@ RUN rosdep init && rosdep update
 RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
-RUN apt-get update && apt install -y udev 
-RUN sh -c 'echo "yaml https://raw.githubusercontent.com/basler/pylon-ros-camera/master/pylon_camera/rosdep/pylon_sdk.yaml" > /etc/ros/rosdep/sources.list.d/30-pylon_camera.list' \
-RUN source /opt/ros/melodic/setup.bash && apt-get install -y apt-utils && apt update -qq && sudo rosdep fix-permissions --rosdistro=melodic && rosdep update --rosdistro=melodic \
-    && rosdep install --from-paths src --ignore-src --rosdistro=melodic -y
+COPY src /opt/pvnet_ros/src
 
 
 RUN source /opt/ros/melodic/setup.bash  && apt install  -y tmux && echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
@@ -191,6 +188,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install netifaces
 
+WORKDiR /opt/pvnet_ros/
 # NOTE reference for building pyton 3 containers: https://answers.ros.org/question/326226/importerror-dynamic-module-does-not-define-module-export-function-pyinit__tf2/
 RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modules python3-empy wget \
     && source /opt/ros/melodic/setup.bash \
@@ -199,7 +197,8 @@ RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modul
             -DPYTHON_EXECUTABLE=/usr/bin/python3 \
             -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
             -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so \
-	&& echo "source devel/setup.bash" >> ~/.bashrc
+	&& echo "source /opt/pvnet_ros/devel/setup.bash" >> ~/.bashrc
 
+WORKDiR /pvnet
 # Set the container's main command
 CMD ["bash"]
