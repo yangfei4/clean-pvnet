@@ -178,9 +178,6 @@ RUN rosdep init && rosdep update
 RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
-WORKDIR  /cobot_detectron2
-COPY src /cobot_detectron2/src
-
 RUN apt-get update && apt install -y udev 
 RUN sh -c 'echo "yaml https://raw.githubusercontent.com/basler/pylon-ros-camera/master/pylon_camera/rosdep/pylon_sdk.yaml" > /etc/ros/rosdep/sources.list.d/30-pylon_camera.list' \
 RUN source /opt/ros/melodic/setup.bash && apt-get install -y apt-utils && apt update -qq && sudo rosdep fix-permissions --rosdistro=melodic && rosdep update --rosdistro=melodic \

@@ -1,4 +1,4 @@
 #!/usr/bin/bash
-container_name=${1:-cobot_vision_ros}
+container_name=${1:-cobot_vision}
 docker stop $container_name & docker container -f prune
 DOCKER_BUILDKIT=1 docker build -f ./docker/mrcnn+pvnet.Dockerfile -t $container_name .
