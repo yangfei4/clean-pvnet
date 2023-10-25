@@ -10,7 +10,16 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import message_filters
+import rospy
+import tf
+import tf2_ros
+import geometry_msgs.msg
 from PIL import Image
+from sensor_msgs.msg import Image, CameraInfo
+from std_msgs.msg import String, Bool
+from transforms3d.euler import euler2mat
+from transforms3d.quaternions import mat2quat, quat2mat
 
 from yacs.config import CfgNode as CN
 from lib.config import args, cfgs
@@ -20,6 +29,7 @@ from lib.visualizers import make_visualizer
 from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
+
 
 def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False):
     kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
@@ -34,6 +44,7 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False):
     if is_vis:
         visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
     return pose_pred
+
 
 def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
@@ -126,6 +137,104 @@ def run_inference(pvnet, cfg, image, K_cam):
     return predict_to_pose(pvnet_output, cfg, K_cam, image, is_vis=True)
 
 
+# Configs/Models in the order 0: mainshell, 1: topshell, 2: insert_mold 
+def make_and_load_pvnet(cfg):
+    # net = make_network(cfg).cuda()
+    net = make_network(cfg)
+    load_network(net, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
+    return net
+
+
+def call_pvnet(data):
+    K_cam = np.array([[10704.062350, 0, data['uv'][0]],
+                [0, 10727.438047, data['uv'][1]],
+                [0, 0, 1]])
+
+    cat_idx = data['class']
+    cur_pvnet = pvnets[cat_idx]
+    cur_cfg = cfgs[cat_idx]
+    cur_roi = data['image_128x128']
+    return run_inference(cur_pvnet, cur_cfg, cur_roi, K_cam)
+
+
+@gin.configurable
+class CobotPoseEstNode(object):
+    def __init__(self,
+                 extrinsic_path: str=gin.REQUIRED):
+        self.__dict__.update(locals())
+        self._static_br = tf2_ros.StaticTransformBroadcaster()
+        self._reset_robot_pub = rospy.Publisher("/reset_robot", Bool, queue_size=1)
+
+        self.T_camera_in_base  = np.linalg.inv(np.load(extrinsic_path))
+        print(self.T_camera_in_base)
+        rospy.sleep(8)
+        self.flagged = False
+
+        self.tf_dict = {}
+
+    def _publish_tf(self, pose_pred):
+        """
+        Publish transforms
+        """
+
+        for idx, pose in enumerate(pose_pred):
+            n = np.linalg.norm(r)
+            r = r / np.asarray(n)
+
+            cls_name = self._cls_names[cls].replace(" ","_").lower()
+
+            x1, y1, x2, y2 = r
+            c = [n * (x2 + x1)*.5, n*(y2 + y1)*.5]
+            center = [int(c[0]), int(c[1])]
+            
+
+            tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+
+            z_board2cam = self.T_camera_in_base[2, 3] - 0.02
+            uv                   = np.array([*c, 1])
+            t                    = np.linalg.inv(self.K) @ uv
+            t                    *= z_board2cam
+
+            P_part_in_cam       = np.array([*t, 1])
+            P_part_in_base      = self.T_camera_in_base @ P_part_in_cam
+
+            T_part_in_cam       = make_T(np.eye(3), *t)
+            T_part_in_base      = self.T_camera_in_base @ T_part_in_cam
+            trans               = T_part_in_base[:3, 3]
+
+            q                    = mat2quat(T_part_in_base[:3, :3])
+            q_ros                = quat_convention(q)
+
+
+            # Publish transform
+            publish_tf2(quat2mat(q), trans, 'world', tf_name)
+
+
+            self.tf_dict[tf_name] = (quat2mat(q), trans)
+
+            
+            print(f"T_part_in_base\n{'='*50}\n{trans}")
+
+        
+        self.flagged = True
+
+
+    def __call__(self, pvnet_predictions):
+        """
+        """
+        while not rospy.is_shutdown():
+            if not hasattr(self, '_im'):
+                continue
+
+            self._publish_tf(pvnet_predictions)
+            cv2.imwrite(f'ros_img.png', out_img[:,:,::-1])
+            cv2.imwrite(f'ros_input.png', self._im[:,:,::-1])
+
+                
+            rospy.sleep(0.5)
+            reset_robot_flag = Bool()
+            reset_robot_flag.data = True
+            d2._reset_robot_pub.publish(reset_robot_flag)
 
 
 if __name__ == '__main__':
@@ -134,32 +243,12 @@ if __name__ == '__main__':
     gin.parse_config_file('./mrcnn/maskrcnn_config.gin')
     mrcnn = MaskRCNNWrapper()
 
-    # Configs/Models in the order 0: mainshell, 1: topshell, 2: insert_mold 
-    def make_and_load_pvnet(cfg):
-        net = make_network(cfg).cuda()
-        load_network(net, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
-        return net
-
     pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
 
     # TODO: replace. Just for demo purposes
-    import cv2
     img = cv2.cvtColor(cv2.imread('./mrcnn/inference_exp/new_ws_oct23/Image__2023-09-26__18-10-34.png'), cv2.COLOR_BGR2RGB)
 
     data_for_pvnet, _, _ = mrcnn(img)
 
-    
-    def call_pvnet(data):
-        K_cam = np.array([[10704.062350, 0, data['uv'][0]],
-                    [0, 10727.438047, data['uv'][1]],
-                    [0, 0, 1]])
-
-        cat_idx = data['class']
-        cur_pvnet = pvnets[cat_idx]
-        cur_cfg = cfgs[cat_idx]
-        cur_roi = data['image_128x128']
-        return run_inference(cur_pvnet, cur_cfg, cur_roi, K_cam)
-
-    
     poses = [call_pvnet(data) for data in data_for_pvnet]
     print(poses)
