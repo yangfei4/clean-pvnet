@@ -139,8 +139,7 @@ def run_inference(pvnet, cfg, image, K_cam):
 
 # Configs/Models in the order 0: mainshell, 1: topshell, 2: insert_mold 
 def make_and_load_pvnet(cfg):
-    # net = make_network(cfg).cuda()
-    net = make_network(cfg)
+    net = make_network(cfg).cuda()
     load_network(net, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
     return net
 
