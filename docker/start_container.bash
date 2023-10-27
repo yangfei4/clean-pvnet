@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-container_name=${1:-pvnet}
+container_name=${1:-cobot_vision}
 xhost +local:root # Allow connections to X server
 docker start $container_name && docker exec -it \
   -e DISPLAY=$DISPLAY \
