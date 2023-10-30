@@ -22,6 +22,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String, Bool
 from transforms3d.euler import euler2mat
 from transforms3d.quaternions import mat2quat, quat2mat
+from cv_bridge import CvBridge, CvBridgeError
 
 from yacs.config import CfgNode as CN
 from lib.config import args, cfgs
@@ -202,7 +203,7 @@ class CobotPoseEstNode(object):
 
         self._cls_names = ("Main shell", "Top shell", "Insert Mold")
         self.T_camera_in_base  = np.load(T_camera_in_base)
-        print(self.T_camera_in_base)
+        print(f"T_camera_in_base\n {self.T_camera_in_base}\n{'='*50}")
         rospy.sleep(8)
         self.flagged = False
         rospy.init_node(node_name)
@@ -213,7 +214,6 @@ class CobotPoseEstNode(object):
         """
         Publish transforms
         """
-
         for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
             cls = input_data["class"]
@@ -223,13 +223,17 @@ class CobotPoseEstNode(object):
             tf_name = f"predicted_part_pose/{idx}/{cls_name}"
             # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
             T_part_in_base  = self.T_camera_in_base @ T_part_in_cam
+
+            # TODO: replace with the hardcoded z value
+            T_part_in_base[2, 3] = 0.1
+
             R        = T_part_in_base[:3, :3]
             t        = T_part_in_base[:3, 3]
             
             # Publish transform
             publish_tf2(R, t, 'world', tf_name)
             self.tf_dict[tf_name] = (R, t)           
-            print(f"T_part_in_base\n{'='*50}\n{T_part_in_base}")
+            print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
 
         
         self.flagged = True
@@ -263,16 +267,27 @@ if __name__ == '__main__':
     gin.parse_config_file('./mrcnn/maskrcnn_config.gin')
     mrcnn = MaskRCNNWrapper()
 
-    pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
 
     # TODO: replace. Just for demo purposes
-    img = cv2.cvtColor(cv2.imread('./mrcnn/inference_exp/new_ws_oct23/Image__2023-09-26__18-10-34.png'), cv2.COLOR_BGR2RGB)
+    # img = cv2.cvtColor(cv2.imread('./mrcnn/inference_exp/new_ws_oct23/Image__2023-09-26__18-10-34.png'), cv2.COLOR_BGR2RGB)
+
+    # init ros node
+    pose_node = CobotPoseEstNode()
+    
+    # Subscribe to camera topic and wait for image
+    print('***Mask R-CNN ready, waiting for camera images***')
+    cam_topic = '/pylon_camera_node' 
+    rgb_sub = message_filters.Subscriber(f'{cam_topic}/image_raw', Image, queue_size=1)
+    msg = rospy.wait_for_message(f'{cam_topic}/image_raw', Image)
+    ts = message_filters.ApproximateTimeSynchronizer([rgb_sub], queue_size=1, slop=0.1)
+    cv_bridge = CvBridge()
+    img = cv_bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
 
     data_for_pvnet, _, _ = mrcnn(img)
 
-    poses = [call_pvnet(data, is_vis=False) for data in data_for_pvnet]
+    pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
+    poses = [call_pvnet(data, is_vis=True) for data in data_for_pvnet]
 
-    pose_node = CobotPoseEstNode()
     # TODO: replace. Just for demo purposes
     pose_node._im = img
     pose_node(poses, data_for_pvnet)
