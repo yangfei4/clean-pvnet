@@ -197,7 +197,8 @@ RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modul
             -DPYTHON_EXECUTABLE=/usr/bin/python3 \
             -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
             -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so \
-	&& echo "source /opt/pvnet_ros/devel/setup.bash" >> ~/.bashrc
+	&& echo "source /opt/pvnet_ros/devel/setup.bash" >> ~/.bashrc \
+	&& echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
 
 WORKDiR /pvnet
 # Set the container's main command
