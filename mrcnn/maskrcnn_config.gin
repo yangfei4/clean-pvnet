@@ -7,3 +7,7 @@ MaskRCNNWrapper.cfg_path = "/pvnet/mrcnn/configs/res101_1009.yaml"
 MaskRCNNWrapper.ckpt_path = "/pvnet/mrcnn/synthetic_workspace_res101_oct23.pth"
 MaskRCNNWrapper.coco_path = None
 MaskRCNNWrapper.img_path = None
+
+CobotPoseEstNode.T_camera_in_base = "/pvnet/T_cam_in_base.npy"
+CobotPoseEstNode.node_name = "cobot_vision"
+
