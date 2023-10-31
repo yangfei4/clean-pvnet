@@ -175,8 +175,7 @@ class MaskRCNNWrapper(object):
                 cent_5k = (u_5k,v_5k)
                 roi_5k_to_128 = crop_roi(full_res_img, cent_5k, crop_dim)
                 img_list.append(roi_5k_to_128 )
-
-                pvnet_input= {"class": cls, "uv": uv, "score": score, "image_128x128": roi_5k_to_128 }
+                pvnet_input= {"class": cls, "uv": cent_5k, "score": score, "image_128x128": roi_5k_to_128 }
                 data_for_pvnet.append(pvnet_input)
             else:
                 print(f"instance {i} is in low confidence score")
