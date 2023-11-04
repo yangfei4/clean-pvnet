@@ -36,7 +36,7 @@ def plot_im(img: Union[str, Path, np.ndarray], output_name, figsize=(10,10)):
 
 def concat_images(img_list):
     """
-    Concatenate numpy images to 4xn grid.
+    Concatenate numpy images to 2xn grid.
     :param img_list: list of images as numpy arrays.
     :return: Concatenated image as numpy array.
     """
@@ -48,12 +48,12 @@ def concat_images(img_list):
         return None
 
     # Calculate the number of columns (n)
-    n_cols = -(-num_images // 4)  # This is equivalent to ceil(num_images / 4)
+    n_cols = -(-num_images // 2)  # This is equivalent to ceil(num_images / 2)
 
     # Empty list to store the concatenated images row-wise
     img_rows = []
 
-    for i in range(4):
+    for i in range(2):
         # Extract each row's images
         row_imgs = img_list[i*n_cols: (i+1)*n_cols]
 
