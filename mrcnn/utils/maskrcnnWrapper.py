@@ -34,7 +34,7 @@ def plot_im(img: Union[str, Path, np.ndarray], output_name, figsize=(10,10)):
     plt.savefig(output_name)
 
 
-def concat_images(img_list, n_rows=2):
+def concat_images(img_list, n_rows=4):
     """
     Concatenate numpy images to 2xn grid.
     :param img_list: list of images as numpy arrays.
@@ -48,16 +48,17 @@ def concat_images(img_list, n_rows=2):
 
     # Calculate the number of columns (n)
     n_cols = -(-num_images // n_rows)  # This is equivalent to ceil(num_images / 2)
-
     # Empty list to store the concatenated images row-wise
     rows = []
-    for i in range(0, num_images, n_rows):
+    for i in range(0, n_rows):
         row = []
-        for j in range(i, i+n_cols):
-            if(j<num_images):
-                row.append(img_list[j])
+        for j in range(0, n_cols):
+            ind = i*n_cols + j
+
+            if(ind<num_images):
+                row.append(img_list[ind])
             else:
-                black_img = np.zeros_like(row[0])
+                black_img = np.zeros_like(img_list[0])
                 row.append(black_img)
         concatenated_row = np.hstack(row)
         rows.append(concatenated_row)
@@ -170,7 +171,6 @@ class MaskRCNNWrapper(object):
                 data_for_pvnet.append(pvnet_input)
             else:
                 print(f"instance {i} is in low confidence score")
-
         return data_for_pvnet, pred_list, img_list
 
 
