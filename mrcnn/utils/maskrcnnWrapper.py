@@ -34,45 +34,36 @@ def plot_im(img: Union[str, Path, np.ndarray], output_name, figsize=(10,10)):
     plt.savefig(output_name)
 
 
-def concat_images(img_list):
+def concat_images(img_list, n_rows=2):
     """
     Concatenate numpy images to 2xn grid.
     :param img_list: list of images as numpy arrays.
     :return: Concatenated image as numpy array.
     """
-    # Number of images
     num_images = len(img_list)
-
-    # If there are no images return None
-    if num_images == 0:
-        return None
+    if(num_images == 0):
+        return
+    elif(num_images == 1):
+        return img_list[0]
 
     # Calculate the number of columns (n)
-    n_cols = -(-num_images // 2)  # This is equivalent to ceil(num_images / 2)
+    n_cols = -(-num_images // n_rows)  # This is equivalent to ceil(num_images / 2)
 
     # Empty list to store the concatenated images row-wise
-    img_rows = []
-
-    for i in range(2):
-        # Extract each row's images
-        row_imgs = img_list[i*n_cols: (i+1)*n_cols]
-
-        # If there are no more images break the loop
-        if not row_imgs:
-            break
-
-        # If this row is not full, fill with black images
-        while len(row_imgs) < n_cols:
-            # Create a black image of the same shape and type as the first image
-            black_img = np.zeros_like(row_imgs[0])
-            row_imgs.append(black_img)
-
-        # Concatenate this row's images horizontally
-        concatenated_row = np.hstack(row_imgs)
-        img_rows.append(concatenated_row)
+    rows = []
+    for i in range(0, len(img_list), n_rows):
+        row = []
+        for j in range(i, i+n_cols):
+            if(j<num_images):
+                row.append(img_list[j])
+            else:
+                black_img = np.zeros_like(img_list[0])
+                row.append(black_img)
+        concatenated_row = np.hstack(row)
+        rows.append(concatenated_row)
 
     # Concatenate all the rows vertically
-    concatenated_img = np.vstack(img_rows)
+    concatenated_img = np.vstack(rows)
     
     return concatenated_img
 
