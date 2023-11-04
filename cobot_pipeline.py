@@ -113,16 +113,16 @@ def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     # segmentaion map, note:
     # mask = torch.argmax(output['seg'], 1)
     ###########################
-    plt.figure(2)
-    plt.subplot(121)
-    plt.imshow(segmentation[0])
-    plt.axis('off')
-    plt.title('Segmentaion 1')
+    # plt.figure(2)
+    # plt.subplot(121)
+    # plt.imshow(segmentation[0])
+    # plt.axis('off')
+    # plt.title('Segmentaion 1')
 
-    plt.subplot(122)
-    plt.imshow(segmentation[1])
-    plt.axis('off')
-    plt.title('Segmentaion 2')
+    # plt.subplot(122)
+    # plt.imshow(segmentation[1])
+    # plt.axis('off')
+    # plt.title('Segmentaion 2')
 
     plt.show()
 
@@ -149,8 +149,17 @@ def make_and_load_pvnet(cfg):
 
 
 def call_pvnet(data, is_vis=True):
-    K_cam = np.array([[10704.062350, 0, data['uv'][0]],
-                [0, 10727.438047, data['uv'][1]],
+    cam_u = 2694.112343
+    cam_v = 1669.169773
+
+    W, H = int(5472), int(3648)
+    crop_size = 128
+    # shift the uv from original camera uv to cropped image center
+    shifted_u = cam_u + (W//2 - data['uv'][0]) - (W//2 - crop_size//2)
+    shifted_v = cam_v + (H//2 - data['uv'][1]) - (H//2 - crop_size//2)
+
+    K_cam = np.array([[10704.062350, 0, shifted_u],
+                [0, 10727.438047, shifted_v],
                 [0, 0, 1]])
 
     cat_idx = data['class']
@@ -214,26 +223,66 @@ class CobotPoseEstNode(object):
         """
         Publish transforms
         """
-        for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
+        debug = False
+        if debug:
+            for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
-            cls = input_data["class"]
-            cls_name = self._cls_names[cls].replace(" ","_").lower()
+                cls = input_data["class"]
+                cls_name = self._cls_names[cls].replace(" ","_").lower()
 
 
-            tf_name = f"predicted_part_pose/{idx}/{cls_name}"
-            # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
-            T_part_in_base  = self.T_camera_in_base @ T_part_in_cam
+                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                uv = input_data["uv"]
 
-            # TODO: replace with the hardcoded z value
-            T_part_in_base[2, 3] = 0.1
+                K =  np.array([[10704.062350, 0, 2694.112343 ],
+                               [0, 10727.438047, 1669.169773],
+                               [0, 0, 1]])
 
-            R        = T_part_in_base[:3, :3]
-            t        = T_part_in_base[:3, 3]
-            
-            # Publish transform
-            publish_tf2(R, t, 'world', tf_name)
-            self.tf_dict[tf_name] = (R, t)           
-            print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
+                # convert to normalized image coordinates
+                u_norm = (uv[0] - K[0,2])/K[0,0]
+                v_norm = (uv[1] - K[1,2])/K[1,1]
+
+                # create 3D vector in camera frame
+                xyz_cam = np.array([u_norm, v_norm, 1])
+
+                # transform to base frame
+                XYZ_world = self.T_camera_in_base @ np.array([*xyz_cam, 1])
+
+                R = np.eye(3)
+                print(f"XYZ_world: {XYZ_world}")
+                t = XYZ_world[:3]
+                t[2] = 0.1
+
+                print(f"uv: {uv}  |Projected uv: {t}")
+
+                # Publish transform
+                publish_tf2(R, t, 'world', tf_name)
+                self.tf_dict[tf_name] = (R, t)           
+                print(f"uv: {uv}  |Projected uv: {t}")
+        else:
+            for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
+
+                cls = input_data["class"]
+                cls_name = self._cls_names[cls].replace(" ","_").lower()
+
+
+                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
+                T_part_in_base  = self.T_camera_in_base @ T_part_in_cam
+
+                # TODO: replace with the hardcoded z value
+                T_part_in_base[2, 3] = 0.1
+
+                R        = T_part_in_base[:3, :3]
+                t        = T_part_in_base[:3, 3]
+                
+                # Publish transform
+                publish_tf2(R, t, 'world', tf_name)
+                self.tf_dict[tf_name] = (R, t)
+                print(f"{'='*50}\n{tf_name}\n{'='*50}")
+                print(f"T_part_in_cam[{idx}]\n{T_part_in_cam}\n{'='*50}")
+                print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
+
 
         
         self.flagged = True
