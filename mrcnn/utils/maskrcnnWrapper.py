@@ -51,13 +51,13 @@ def concat_images(img_list, n_rows=2):
 
     # Empty list to store the concatenated images row-wise
     rows = []
-    for i in range(0, len(img_list), n_rows):
+    for i in range(0, num_images, n_rows):
         row = []
         for j in range(i, i+n_cols):
             if(j<num_images):
                 row.append(img_list[j])
             else:
-                black_img = np.zeros_like(img_list[0])
+                black_img = np.zeros_like(row[0])
                 row.append(black_img)
         concatenated_row = np.hstack(row)
         rows.append(concatenated_row)
