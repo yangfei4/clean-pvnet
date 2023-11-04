@@ -208,7 +208,7 @@ class CobotPoseEstNode(object):
         self.flagged = False
         rospy.init_node(node_name)
 
-        self.tf_dict = {}
+        self.tf_dict = {'calibrated_camera': self.T_camera_in_base}
 
     def _publish_tf(self, pvnet_outputs, pvnet_inputs):
         """
