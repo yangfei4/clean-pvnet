@@ -2,6 +2,12 @@
 <p align="center">
   <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_pipeline.jpg?raw=true" width="800">
 </p>
+<p align="center">
+  <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_challenges.jpg?raw=true" width="800">
+</p>
+<p align="center">
+  <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_evaluation.jpg?raw=true" width="800">
+</p>
 
 ## Installation
 
