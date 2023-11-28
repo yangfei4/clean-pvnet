@@ -166,6 +166,7 @@ if __name__ == '__main__':
     """
     # Load all need models and configs
     gin.parse_config_file('./mrcnn/simple_output.gin')
+    T_tagboard_in_cam = np.load("./T_tagboard_in_cam.npy")
     mrcnn = MaskRCNNWrapper()
     # Dataset can be downloaded on box: https://uofi.box.com/s/s81bn3nulxi18rlml1vnjwqmf4kyonal
     img_path = Path("./11_23_image_dataset")
@@ -177,8 +178,7 @@ if __name__ == '__main__':
         pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
         poses = [call_pvnet(data, is_vis=False) for data in data_for_pvnet]
 
-        [d.update({'T_part_in_cam': p}) for d, p in zip(data_for_pvnet, poses)]
-        print(data_for_pvnet[0])
+        [d.update({'T_part_in_cam': T_part_in_cam,  'T_part_in_tag': np.linalg.inv(T_tagboard_in_cam) @ T_part_in_cam}) for d, T_part_in_cam in zip(data_for_pvnet, poses)]
 
         data = {str(i):d for i, d in enumerate(data_for_pvnet)}
 
