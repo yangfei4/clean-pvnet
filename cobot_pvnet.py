@@ -167,6 +167,7 @@ if __name__ == '__main__':
     # Load all need models and configs
     gin.parse_config_file('./mrcnn/simple_output.gin')
     mrcnn = MaskRCNNWrapper()
+    # Dataset can be downloaded on box: https://uofi.box.com/s/s81bn3nulxi18rlml1vnjwqmf4kyonal
     img_path = Path("./11_23_image_dataset")
 
     for img_path in img_path.glob("*.png"):
