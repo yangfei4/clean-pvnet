@@ -1,19 +1,17 @@
 # PVNet: Pixel-wise Voting Network for 6DoF Pose Estimation
+<p align="center">
+  <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_pipeline.jpg?raw=true" width="800">
+</p>
+<p align="center">
+  <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_challenges.jpg?raw=true" width="800">
+</p>
 
-![introduction](./assets/introduction.png)
+#### Evaluation Results
+<p align="center">
+  <img src="https://github.com/yangfei4/Sim2real/blob/main/figures/pvnet_evaluation.jpg?raw=true" width="800">
+</p>
 
-> [PVNet: Pixel-wise Voting Network for 6DoF Pose Estimation](https://arxiv.org/pdf/1812.11788.pdf)  
-> Sida Peng, Yuan Liu, Qixing Huang, Xiaowei Zhou, Hujun Bao   
-> CVPR 2019 oral  
-> [Project Page](https://zju3dv.github.io/pvnet)
-
-Any questions or discussions are welcomed!
-
-## Introduction
-
-Thanks [Haotong Lin](https://github.com/haotongl) for providing the clean version of PVNet and reproducing the results.
-
-The structure of this project is described in [project_structure.md](project_structure.md).
+* See [Evaluation Pipeline](https://github.com/yangfei4/clean-pvnet/blob/master/evaluation.ipynb)
 
 ## Installation
 
