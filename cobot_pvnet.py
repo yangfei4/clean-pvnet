@@ -3,11 +3,14 @@ import json
 import argparse
 import yaml
 import torch
+import cv2
+import gin
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from PIL import Image
+from pathlib import Path
 
 from yacs.config import CfgNode as CN
 from lib.config import args, cfgs
@@ -17,20 +20,50 @@ from lib.visualizers import make_visualizer
 from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
+from mrcnn.utils.maskrcnnWrapper import MaskRCNNWrapper
 
-def predict_to_pose(pvnet_output, K_cam, input_img, is_vis: bool=False):
+
+# Configs/Models in the order 0: mainshell, 1: topshell, 2: insert_mold 
+def make_and_load_pvnet(cfg):
+    net = make_network(cfg).cuda()
+    load_network(net, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
+    return net
+
+def call_pvnet(data, is_vis=True):
+    cam_u = 2694.112343
+    cam_v = 1669.169773
+
+    W, H = int(5472), int(3648)
+    crop_size = 128
+    # shift the uv from original camera uv to cropped image center
+    shifted_u = cam_u + (W//2 - data['uv'][0]) - (W//2 - crop_size//2)
+    shifted_v = cam_v + (H//2 - data['uv'][1]) - (H//2 - crop_size//2)
+
+    K_cam = np.array([[10704.062350, 0, shifted_u],
+                [0, 10727.438047, shifted_v],
+                [0, 0, 1]])
+
+    cat_idx = data['class']
+    cur_pvnet = pvnets[cat_idx]
+    cur_cfg = cfgs[cat_idx]
+    cur_roi = data['image_128x128']
+    return run_inference(cur_pvnet, cur_cfg, cur_roi, K_cam, is_vis)
+
+
+def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_pose_H: bool=True):
     kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
-    print("Camera Intrinsics:")
-    print(K_cam)
-    print("Predicted Pose wrt camera:")
-    print(pose_pred)
-
     if is_vis:
-        visualize_pose(input_img, pvnet_output, K_cam, pose_pred)
+        visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
+
+    if is_pose_H:
+        # return pose as 4x4 matrix
+        return np.c_[pose_pred.T, np.array([0, 0, 0, 1])].T
+    # return pose as 3x4 matrix
     return pose_pred
+
 
 def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
@@ -108,11 +141,8 @@ def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
 
     plt.show()
 
-def run_inference(cfg, image, K_cam):
-    network = make_network(cfg).cuda()
-    load_network(network, cfg.model_dir, resume=cfg.resume, epoch=cfg.test.epoch)
-
-    network.eval()
+def run_inference(pvnet, cfg, image, K_cam, is_vis=False):
+    pvnet.eval()
 
     transform = make_transforms(cfg, is_train=False)
     processed_image, _, _ = transform(image)
@@ -122,8 +152,8 @@ def run_inference(cfg, image, K_cam):
     input_tensor = torch.from_numpy(processed_image).unsqueeze(0).cuda().float()
 
     with torch.no_grad():
-        pvnet_output = network(input_tensor)
-    return predict_to_pose(pvnet_output, K_cam, image, is_vis=True)
+        pvnet_output = pvnet(input_tensor)
+    return predict_to_pose(pvnet_output, cfg, K_cam, image)
 
 
 if __name__ == '__main__':
@@ -134,36 +164,22 @@ if __name__ == '__main__':
         'score': a float representing the score.
         'image_128x128': a 2D numpy array representing an image.
     """
-    load_path = 'maskrcnn_topshell.json'
+    # Load all need models and configs
+    gin.parse_config_file('./mrcnn/simple_output.gin')
+    mrcnn = MaskRCNNWrapper()
+    img_path = Path("./11_23_image_dataset")
 
-    # Load the data from the specified path
-    with open(load_path, 'r') as f:
-        instances = json.load(f)
+    for img_path in img_path.glob("*.png"):
+        print(img_path)
+        img = cv2.imread(str(img_path))
+        data_for_pvnet, _, _ = mrcnn(img, is_vis=False)
+        pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
+        poses = [call_pvnet(data, is_vis=False) for data in data_for_pvnet]
 
-    # Convert lists back to numpy arrays after loading
-    for item in instances:
-        item['uv'] = np.array(item['uv'])
-        item['image_128x128'] = np.array(item['image_128x128'])
+        [d.update({'T_part_in_cam': p}) for d, p in zip(data_for_pvnet, poses)]
+        print(data_for_pvnet[0])
 
-    z = []
-    pose_list = []
-    for instance in instances:
-        category = instance['class']
-        cfg = cfgs[category]
-        K_cam = np.array([[10704.062350, 0, item['uv'][0]],
-                    [0, 10727.438047, item['uv'][1]],
-                    [0, 0, 1]])
-        pose = globals()['run_'+args.type](cfg, instance['image_128x128'], K_cam)
-        pose_list.append(pose)
-        if(category == 1): # 0: mainshell, 1: topshell, 2: insert_mold
-            z.append(pose[2,3])
-    
-    plt.figure()
-    # plot z distance distrubution
-    plt.hist(z, bins=20)
-    plt.xlabel('z estimation (m)')
-    plt.ylabel('occurrence count')
-    plt.title('z estimation distribution')
-    # plot a vertical distance line for a ground truth with text
-    plt.axvline(x=1.473, color='r', linestyle='--')
-    plt.show()
+        data = {str(i):d for i, d in enumerate(data_for_pvnet)}
+
+        output_path = img_path.parent / (img_path.name[:-4] + ".npz")
+        np.savez_compressed(output_path, **data)
