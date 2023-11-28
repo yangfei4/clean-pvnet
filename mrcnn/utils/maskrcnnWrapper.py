@@ -174,7 +174,7 @@ class MaskRCNNWrapper(object):
         return data_for_pvnet, pred_list, img_list
 
 
-    def __call__(self, full_res_img):
+    def __call__(self, full_res_img, is_vis=True):
         # TODO: crop image around tagboard center:
         img = crop_roi(full_res_img, self.TAGBOARD_CENT, self.model_input_wh)
 
@@ -190,11 +190,12 @@ class MaskRCNNWrapper(object):
         # TODO: crop rois around detected bbox centers
         # TODO: store uv info, rois by class pred
         data_for_pvnet, pred_list, img_list = self.process_pred_for_pvnet(prediction, full_res_img, output_img)
-        img_grid = concat_images(img_list)
-        plot_im(img_grid, f"roi_5k_to_128_{self.call_count}.png")
+        if is_vis:
+            img_grid = concat_images(img_list)
+            plot_im(img_grid, f"roi_5k_to_128_{self.call_count}.png")
 
-        pred_grid = concat_images(pred_list)
-        plot_im(pred_grid, f"roi_preds_128_{self.call_count}.png")
+            pred_grid = concat_images(pred_list)
+            plot_im(pred_grid, f"roi_preds_128_{self.call_count}.png")
         self.call_count += 1
         return data_for_pvnet, prediction, output_img
 
