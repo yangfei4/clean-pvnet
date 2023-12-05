@@ -65,7 +65,7 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_
     return pose_pred
 
 
-def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
+def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     segmentation = pvnet_output['seg'][0].detach().cpu().numpy()
@@ -128,16 +128,16 @@ def visualize_pose(input_img, pvnet_output, K_cam, pose_pred):
     # segmentaion map, note:
     # mask = torch.argmax(output['seg'], 1)
     ###########################
-    plt.figure(2)
-    plt.subplot(121)
-    plt.imshow(segmentation[0])
-    plt.axis('off')
-    plt.title('Segmentaion 1')
+    # plt.figure(2)
+    # plt.subplot(121)
+    # plt.imshow(segmentation[0])
+    # plt.axis('off')
+    # plt.title('Segmentaion 1')
 
-    plt.subplot(122)
-    plt.imshow(segmentation[1])
-    plt.axis('off')
-    plt.title('Segmentaion 2')
+    # plt.subplot(122)
+    # plt.imshow(segmentation[1])
+    # plt.axis('off')
+    # plt.title('Segmentaion 2')
 
     plt.show()
 
@@ -153,7 +153,7 @@ def run_inference(pvnet, cfg, image, K_cam, is_vis=False):
 
     with torch.no_grad():
         pvnet_output = pvnet(input_tensor)
-    return predict_to_pose(pvnet_output, cfg, K_cam, image)
+    return predict_to_pose(pvnet_output, cfg, K_cam, image, is_vis)
 
 
 if __name__ == '__main__':
@@ -168,15 +168,15 @@ if __name__ == '__main__':
     gin.parse_config_file('./mrcnn/simple_output.gin')
     T_tagboard_in_cam = np.load("./T_tagboard_in_cam.npy")
     mrcnn = MaskRCNNWrapper()
+    pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
     # Dataset can be downloaded on box: https://uofi.box.com/s/s81bn3nulxi18rlml1vnjwqmf4kyonal
     img_path = Path("./11_23_image_dataset")
 
     for img_path in img_path.glob("*.png"):
         print(img_path)
-        img = cv2.imread(str(img_path))
-        data_for_pvnet, _, _ = mrcnn(img, is_vis=False)
-        pvnets = tuple([make_and_load_pvnet(c) for c in cfgs])
-        poses = [call_pvnet(data, is_vis=False) for data in data_for_pvnet]
+        img = cv2.imread(str(img_path))[:,:,::-1]
+        data_for_pvnet, _, _ = mrcnn(img, is_vis=True)
+        poses = [call_pvnet(data, is_vis=True) for data in data_for_pvnet]
 
         [d.update({'T_part_in_cam': T_part_in_cam,  'T_part_in_tag': np.linalg.inv(T_tagboard_in_cam) @ T_part_in_cam}) for d, T_part_in_cam in zip(data_for_pvnet, poses)]
 
