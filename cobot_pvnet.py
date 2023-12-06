@@ -55,6 +55,20 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
+    def flip_yz_axes(pose_matrix):
+        # Create a transformation matrix for flipping y and z axes by 180 degrees
+        flip_matrix = np.array([
+            [1, 0, 0, 0],
+            [0, -1, 0, 0],
+            [0, 0, -1, 0],
+            [0, 0, 0, 1]
+        ])
+        # Multiply the original pose matrix by the flip matrix
+        flipped_pose = np.dot(pose_matrix, flip_matrix)
+        return flipped_pose
+    
+    pose_pred = flip_yz_axes(pose_pred)
+
     if is_vis:
         visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
 
@@ -62,8 +76,37 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_
         # return pose as 4x4 matrix
         return np.c_[pose_pred.T, np.array([0, 0, 0, 1])].T
     # return pose as 3x4 matrix
+
     return pose_pred
 
+def draw_axis(img, R, t, K, scale=0.006, dist=None):
+    """
+    Draw a 6dof axis (XYZ -> RGB) in the given rotation and translation
+    :param img - rgb numpy array
+    :R - Rotation matrix, 3x3
+    :t - 3d translation vector, in meters (dtype must be float)
+    :K - intrinsic calibration matrix , 3x3
+    :scale - factor to control the axis lengths
+    :dist - optional distortion coefficients, numpy array of length 4. If None distortion is ignored.
+    """
+    img = img.astype(np.float32)
+    rotation_vec, _ = cv2.Rodrigues(R) #euler rotations
+    dist = np.zeros(4, dtype=float) if dist is None else dist
+    points = scale * np.float32([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]).reshape(-1, 3)
+    axis_points, _ = cv2.projectPoints(points, rotation_vec, t, K, dist)
+    
+    axis_points = axis_points.astype(int)
+    corner = tuple(axis_points[3].ravel())
+    img = cv2.line(img, corner, tuple(axis_points[0].ravel()), (255, 0, 0), 1)
+    # img = cv2.putText(img, "X", tuple(axis_points[0].ravel()), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 0, 0), 1)
+
+    img = cv2.line(img, corner, tuple(axis_points[1].ravel()), (0, 255, 0), 1)
+    # img = cv2.putText(img, "Y", tuple(axis_points[1].ravel()), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 1)
+
+    img = cv2.line(img, corner, tuple(axis_points[2].ravel()), (0, 0, 255), 1)
+
+    img = img.astype(np.uint8)
+    return img
 
 def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
@@ -93,51 +136,18 @@ def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     plt.title('Key points detection')
 
     ax = plt.subplot(224)
-    ax.imshow(input_img)
+    # ax.imshow(input_img)
+    ax.imshow(draw_axis(input_img, pose_pred[:3, :3], pose_pred[:3, 3], K_cam))
 
-    # Calculate center of bounding box
-    center_x = np.mean(corner_2d_pred[:, 0])
-    center_y = np.mean(corner_2d_pred[:, 1])
-    shift_x = center_x - corner_2d_pred[6, 0]
-    shift_y = center_y - corner_2d_pred[6, 1]
-    # Plot X-axis
-    ax.plot([center_x , corner_2d_pred[2, 0]+shift_x], [center_y, corner_2d_pred[2, 1]+shift_y], color='r', linewidth=1)
-    # Plot Y-axis
-    ax.plot([center_x, corner_2d_pred[4, 0]+shift_x], [center_y, corner_2d_pred[4, 1]+shift_y], color='g', linewidth=1)
-    # Plot Z-axis
-    ax.plot([center_x, corner_2d_pred[7, 0]+shift_x], [center_y, corner_2d_pred[7, 1]+shift_y], color='b', linewidth=1)
-    # Add patches for corner_2d_gt and corner_2d_pred
-    ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
-    ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
     plt.axis('off')
     plt.title('Pose Prediction')
     # plt.savefig("/pvnet/data/evaluation/topshell.png")
 
-    ###########################
-    # vertex: currently makes no sense
-    ###########################
-    # plt.figure(1)
-    # from torchvision.utils import make_grid
-    # import torchvision
-    # Grid = make_grid(output['vertex'].permute(1,0,2,3), nrow=9, padding=25)
-    # vector_map = torchvision.transforms.ToPILImage()(Grid.cpu())
-    # vector_map.show()
-    # plt.imshow(vector_map)
-
-    ###########################
-    # segmentaion map, note:
-    # mask = torch.argmax(output['seg'], 1)
-    ###########################
-    # plt.figure(2)
-    # plt.subplot(121)
-    # plt.imshow(segmentation[0])
-    # plt.axis('off')
-    # plt.title('Segmentaion 1')
-
-    # plt.subplot(122)
-    # plt.imshow(segmentation[1])
-    # plt.axis('off')
-    # plt.title('Segmentaion 2')
+    from scipy.spatial.transform import Rotation
+    R = pose_pred[:3, :3]
+    euler_angles = Rotation.from_matrix(R).as_euler('xyz', degrees=True)
+    euler_angles_rounded = [int(angle) for angle in euler_angles]
+    print("Euler angles for Estimated Pose in camera frame:", euler_angles_rounded)
 
     plt.show()
 
