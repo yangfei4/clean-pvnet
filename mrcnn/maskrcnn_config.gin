@@ -9,5 +9,5 @@ MaskRCNNWrapper.coco_path = None
 MaskRCNNWrapper.img_path = None
 
 CobotPoseEstNode.T_camera_in_base = "/pvnet/T_camera_in_base.npy"
+CobotPoseEstNode.T_tagboard_in_camera = "/pvnet/T_tagboard_in_cam.npy"
 CobotPoseEstNode.node_name = "cobot_vision"
-
