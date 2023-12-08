@@ -33,7 +33,8 @@ from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
 from mrcnn.utils.maskrcnnWrapper import MaskRCNNWrapper
-
+from mrcnn.stable_poses_est import find_closest_stable_pose, construct_T_from_R_sta_and_T_est, stable_poses_R, alphas_insertmold, z_offsets_insertmold
+           
 
 def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_pose_H: bool=True):
     kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
