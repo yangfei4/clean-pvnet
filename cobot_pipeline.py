@@ -41,6 +41,20 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
+
+    def flip_yz_axes(pose_matrix):
+        # Create a transformation matrix for flipping y and z axes by 180 degrees
+        flip_matrix = np.array([
+            [1, 0, 0, 0],
+            [0, -1, 0, 0],
+            [0, 0, -1, 0],
+            [0, 0, 0, 1]
+        ])
+        # Multiply the original pose matrix by the flip matrix
+        flipped_pose = np.dot(pose_matrix, flip_matrix)
+        return flipped_pose
+    
+    pose_pred = flip_yz_axes(pose_pred)
     if is_vis:
         visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
 
@@ -206,13 +220,24 @@ def quat_convention(q: list, trans3d: bool=False)-> list:
 class CobotPoseEstNode(object):
     def __init__(self,
                  node_name: str,
-                 T_camera_in_base: str=gin.REQUIRED):
+                 T_camera_in_base: str=gin.REQUIRED,
+                 T_tagboard_in_camera: str=gin.REQUIRED,
+                 ):
         self.__dict__.update(locals())
         self._static_br = tf2_ros.StaticTransformBroadcaster()
         self._reset_robot_pub = rospy.Publisher("/reset_robot", Bool, queue_size=1)
 
         self._cls_names = ("Main shell", "Top shell", "Insert Mold")
         self.T_camera_in_base  = np.load(T_camera_in_base)
+        self.T_tagboard_in_camera = np.load(T_tagboard_in_camera)
+        
+        self.T_base_in_camera = np.linalg.inv(self.T_camera_in_base)
+        self.T_camera_in_tagboard = np.linalg.inv(self.T_tagboard_in_camera)
+
+        self.T_base_in_tagboard = self.T_camera_in_tagboard @ self.T_base_in_camera
+        self.T_tagboard_in_base = np.linalg.inv(self.T_base_in_tagboard)
+
+
         print(f"T_camera_in_base\n {self.T_camera_in_base}\n{'='*50}")
         rospy.sleep(8)
         self.flagged = False
@@ -246,6 +271,7 @@ class CobotPoseEstNode(object):
                 # create 3D vector in camera frame
                 xyz_cam = np.array([u_norm, v_norm, 1])
 
+
                 # transform to base frame
                 XYZ_world = self.T_camera_in_base @ np.array([*xyz_cam, 1])
 
@@ -261,6 +287,8 @@ class CobotPoseEstNode(object):
                 self.tf_dict[tf_name] = (R, t)           
                 print(f"uv: {uv}  |Projected uv: {t}")
         else:
+
+
             for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
                 cls = input_data["class"]
@@ -269,20 +297,23 @@ class CobotPoseEstNode(object):
 
                 tf_name = f"predicted_part_pose/{idx}/{cls_name}"
                 # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
-                T_part_in_base  = self.T_camera_in_base @ T_part_in_cam
+                T_part_in_tagboard  = self.T_camera_in_tagboard @ T_part_in_cam
 
-                # TODO: replace with the hardcoded z value
-                T_part_in_base[2, 3] = 0.1
 
-                R        = T_part_in_base[:3, :3]
-                t        = T_part_in_base[:3, 3]
+
+                R_stable_part_in_tagboard = find_closest_stable_pose(stable_poses_R, T_part_in_tagboard[:3, :3])
+                T_stable_part_in_tagboard = construct_T_from_R_sta_and_T_est(R_stable_part_in_tagboard, T_part_in_tagboard, alphas_insertmold, z_offsets_insertmold)
+                T_stable_part_in_base = self.T_tagboard_in_base @ T_stable_part_in_tagboard
+
+                R        = T_stable_part_in_base[:3, :3]
+                t        = T_stable_part_in_base[:3, 3]
                 
                 # Publish transform
                 publish_tf2(R, t, 'world', tf_name)
                 self.tf_dict[tf_name] = (R, t)
                 print(f"{'='*50}\n{tf_name}\n{'='*50}")
                 print(f"T_part_in_cam[{idx}]\n{T_part_in_cam}\n{'='*50}")
-                print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
+                print(f"T_stable_part_in_base{idx}]\n{T_stable_part_in_base}\n{'='*50}")
 
 
         
