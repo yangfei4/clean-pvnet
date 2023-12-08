@@ -20,7 +20,7 @@ import geometry_msgs.msg
 from PIL import Image
 from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String, Bool
-from transforms3d.euler import euler2mat
+from transforms3d.euler import euler2mat, mat2euler
 from transforms3d.quaternions import mat2quat, quat2mat
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -243,7 +243,8 @@ class CobotPoseEstNode(object):
         self.flagged = False
         rospy.init_node(node_name)
 
-        self.tf_dict = {'calibrated_camera': (self.T_camera_in_base[:3, :3], self.T_camera_in_base[:3, 3])}
+        self.tf_dict = {'camera_in_base': (self.T_camera_in_base[:3, :3], self.T_camera_in_base[:3, 3]),
+                        'tagboard_in_base': (self.T_tagboard_in_base[:3, :3], self.T_tagboard_in_base[:3, 3])}
 
     def _publish_tf(self, pvnet_outputs, pvnet_inputs):
         """
@@ -257,7 +258,7 @@ class CobotPoseEstNode(object):
                 cls_name = self._cls_names[cls].replace(" ","_").lower()
 
 
-                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                tf_name = f"stable_pose_in_base/{idx}/{cls_name}"
                 uv = input_data["uv"]
 
                 K =  np.array([[10704.062350, 0, 2694.112343 ],
@@ -295,7 +296,7 @@ class CobotPoseEstNode(object):
                 cls_name = self._cls_names[cls].replace(" ","_").lower()
 
 
-                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                tf_name = f"stable_pose_in_base/{idx}/{cls_name}"
                 # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
                 T_part_in_tagboard  = self.T_camera_in_tagboard @ T_part_in_cam
 
@@ -334,7 +335,11 @@ class CobotPoseEstNode(object):
             else:
                 self._publish_tf(pvnet_predictions, pvnet_inputs)
                 cv2.imwrite(f'ros_input.png', self._im[:,:,::-1])
-
+                np.set_printoptions(precision=4)
+                for tf_name, (R,t) in self.tf_dict.items():
+                    euler = np.array([ax * 180 / np.pi for ax in mat2euler(R)])
+                    quat = mat2quat(R)
+                    print(f"{tf_name:<50}: Quaternion {quat} | Euler {euler}")
                     
             rospy.sleep(0.5)
             reset_robot_flag = Bool()
