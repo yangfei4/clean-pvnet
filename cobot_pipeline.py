@@ -23,6 +23,7 @@ from std_msgs.msg import String, Bool
 from transforms3d.euler import euler2mat, mat2euler
 from transforms3d.quaternions import mat2quat, quat2mat
 from cv_bridge import CvBridge, CvBridgeError
+from scipy.spatial.transform import Rotation
 
 from yacs.config import CfgNode as CN
 from lib.config import args, cfgs
@@ -139,7 +140,7 @@ def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     # plt.axis('off')
     # plt.title('Segmentaion 2')
 
-    plt.show()
+    plt.show() 
 
 def run_inference(pvnet, cfg, image, K_cam, is_vis=True):
     pvnet.eval()
@@ -185,7 +186,6 @@ def call_pvnet(data, is_vis=True):
 
 
 def publish_tf2(R: np.ndarray, t: np.array, parent_frame: str, child_frame: str):
-
     assert R.shape == (3, 3), f"Rot matrix shape is ({R.shape}) not (3,3)"
 
     br = tf2_ros.TransformBroadcaster()
@@ -229,7 +229,14 @@ class CobotPoseEstNode(object):
 
         self._cls_names = ("Main shell", "Top shell", "Insert Mold")
         self.T_camera_in_base  = np.load(T_camera_in_base)
-        self.T_tagboard_in_camera = np.load(T_tagboard_in_camera)
+        
+        # Since the pre-computed T_tagboard_in_camera is in pointing down in z direction, 
+        # which is unexpected, we need to convert it to the tagUp frame
+        T_tagDown_in_cam = np.load(T_tagboard_in_camera)
+        T_tagUp_in_tagDown = np.eye(4)
+        T_tagUp_in_tagDown[:3, :3] = Rotation.from_euler('xyz', [180, 0, 0], degrees=True).as_matrix()
+        T_tagUp_in_cam = T_tagDown_in_cam @ T_tagUp_in_tagDown
+        self.T_tagboard_in_camera = T_tagUp_in_cam
         
         self.T_base_in_camera = np.linalg.inv(self.T_camera_in_base)
         self.T_camera_in_tagboard = np.linalg.inv(self.T_tagboard_in_camera)
