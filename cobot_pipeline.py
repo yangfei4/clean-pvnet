@@ -20,7 +20,7 @@ import geometry_msgs.msg
 from PIL import Image
 from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String, Bool
-from transforms3d.euler import euler2mat
+from transforms3d.euler import euler2mat, mat2euler
 from transforms3d.quaternions import mat2quat, quat2mat
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -33,13 +33,28 @@ from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
 from mrcnn.utils.maskrcnnWrapper import MaskRCNNWrapper
-
+from mrcnn.stable_poses_est import find_closest_stable_pose, construct_T_from_R_sta_and_T_est, stable_poses_R, alphas_insertmold, z_offsets_insertmold
+           
 
 def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_pose_H: bool=True):
     kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
+
+    def flip_yz_axes(pose_matrix):
+        # Create a transformation matrix for flipping y and z axes by 180 degrees
+        flip_matrix = np.array([
+            [1, 0, 0, 0],
+            [0, -1, 0, 0],
+            [0, 0, -1, 0],
+            [0, 0, 0, 1]
+        ])
+        # Multiply the original pose matrix by the flip matrix
+        flipped_pose = np.dot(pose_matrix, flip_matrix)
+        return flipped_pose
+    
+    pose_pred = flip_yz_axes(pose_pred)
     if is_vis:
         visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
 
@@ -205,19 +220,31 @@ def quat_convention(q: list, trans3d: bool=False)-> list:
 class CobotPoseEstNode(object):
     def __init__(self,
                  node_name: str,
-                 T_camera_in_base: str=gin.REQUIRED):
+                 T_camera_in_base: str=gin.REQUIRED,
+                 T_tagboard_in_camera: str=gin.REQUIRED,
+                 ):
         self.__dict__.update(locals())
         self._static_br = tf2_ros.StaticTransformBroadcaster()
         self._reset_robot_pub = rospy.Publisher("/reset_robot", Bool, queue_size=1)
 
         self._cls_names = ("Main shell", "Top shell", "Insert Mold")
         self.T_camera_in_base  = np.load(T_camera_in_base)
+        self.T_tagboard_in_camera = np.load(T_tagboard_in_camera)
+        
+        self.T_base_in_camera = np.linalg.inv(self.T_camera_in_base)
+        self.T_camera_in_tagboard = np.linalg.inv(self.T_tagboard_in_camera)
+
+        self.T_base_in_tagboard = self.T_camera_in_tagboard @ self.T_base_in_camera
+        self.T_tagboard_in_base = np.linalg.inv(self.T_base_in_tagboard)
+
+
         print(f"T_camera_in_base\n {self.T_camera_in_base}\n{'='*50}")
         rospy.sleep(8)
         self.flagged = False
         rospy.init_node(node_name)
 
-        self.tf_dict = {'calibrated_camera': (self.T_camera_in_base[:3, :3], self.T_camera_in_base[:3, 3])}
+        self.tf_dict = {'camera_in_base': (self.T_camera_in_base[:3, :3], self.T_camera_in_base[:3, 3]),
+                        'tagboard_in_base': (self.T_tagboard_in_base[:3, :3], self.T_tagboard_in_base[:3, 3])}
 
     def _publish_tf(self, pvnet_outputs, pvnet_inputs):
         """
@@ -231,7 +258,7 @@ class CobotPoseEstNode(object):
                 cls_name = self._cls_names[cls].replace(" ","_").lower()
 
 
-                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                tf_name = f"stable_pose_in_base/{idx}/{cls_name}"
                 uv = input_data["uv"]
 
                 K =  np.array([[10704.062350, 0, 2694.112343 ],
@@ -244,6 +271,7 @@ class CobotPoseEstNode(object):
 
                 # create 3D vector in camera frame
                 xyz_cam = np.array([u_norm, v_norm, 1])
+
 
                 # transform to base frame
                 XYZ_world = self.T_camera_in_base @ np.array([*xyz_cam, 1])
@@ -260,28 +288,33 @@ class CobotPoseEstNode(object):
                 self.tf_dict[tf_name] = (R, t)           
                 print(f"uv: {uv}  |Projected uv: {t}")
         else:
+
+
             for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
                 cls = input_data["class"]
                 cls_name = self._cls_names[cls].replace(" ","_").lower()
 
 
-                tf_name = f"predicted_part_pose/{idx}/{cls_name}"
+                tf_name = f"stable_pose_in_base/{idx}/{cls_name}"
                 # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
-                T_part_in_base  = self.T_camera_in_base @ T_part_in_cam
+                T_part_in_tagboard  = self.T_camera_in_tagboard @ T_part_in_cam
 
-                # TODO: replace with the hardcoded z value
-                T_part_in_base[2, 3] = 0.1
 
-                R        = T_part_in_base[:3, :3]
-                t        = T_part_in_base[:3, 3]
+
+                R_stable_part_in_tagboard = find_closest_stable_pose(stable_poses_R, T_part_in_tagboard[:3, :3])
+                T_stable_part_in_tagboard = construct_T_from_R_sta_and_T_est(R_stable_part_in_tagboard, T_part_in_tagboard, alphas_insertmold, z_offsets_insertmold)
+                T_stable_part_in_base = self.T_tagboard_in_base @ T_stable_part_in_tagboard
+
+                R        = T_stable_part_in_base[:3, :3]
+                t        = T_stable_part_in_base[:3, 3]
                 
                 # Publish transform
                 publish_tf2(R, t, 'world', tf_name)
                 self.tf_dict[tf_name] = (R, t)
                 print(f"{'='*50}\n{tf_name}\n{'='*50}")
                 print(f"T_part_in_cam[{idx}]\n{T_part_in_cam}\n{'='*50}")
-                print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
+                print(f"T_stable_part_in_base{idx}]\n{T_stable_part_in_base}\n{'='*50}")
 
 
         
@@ -302,7 +335,11 @@ class CobotPoseEstNode(object):
             else:
                 self._publish_tf(pvnet_predictions, pvnet_inputs)
                 cv2.imwrite(f'ros_input.png', self._im[:,:,::-1])
-
+                np.set_printoptions(precision=4)
+                for tf_name, (R,t) in self.tf_dict.items():
+                    euler = np.array([ax * 180 / np.pi for ax in mat2euler(R)])
+                    quat = mat2quat(R)
+                    print(f"{tf_name:<50}: Quaternion {quat} | Euler {euler}")
                     
             rospy.sleep(0.5)
             reset_robot_flag = Bool()
