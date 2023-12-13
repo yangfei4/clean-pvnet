@@ -74,13 +74,11 @@ Another way is to use the following commands.
 
 The training parameters can be found in [project_structure.md](project_structure.md).
 
-1. Create a synthetic dataset with mask and pose annotation using Blenderproc2. 
+1. Create a synthetic dataset with mask and pose annotation using Blenderproc2. See generation pipeline [here](https://github.com/yangfei4/BlenderProc2_Cobot?tab=readme-ov-file#sythetic-data-generation-for-pvnet).
 2. Organize the dataset as the following structure:
     ```
     ├── /path/to/dataset
     │   ├── model.ply
-    │   ├── camera.txt
-    │   ├── diameter.txt  // the object diameter, whose unit is meter
     │   ├── rgb/
     │   │   ├── 0.jpg
     │   │   ├── ...
@@ -97,6 +95,12 @@ The training parameters can be found in [project_structure.md](project_structure
     │   │   ├── pose1234.npy
     │   │   ├── ...
     │   │   └──
+    │   ├── k/
+    │   │   ├── k0.npy
+    │   │   ├── ...
+    │   │   ├── k1234.npy
+    │   │   ├── ...
+    │   │   └──
     ```
 2.  Create a soft link pointing to the training and testing dataset:
     ```
@@ -107,8 +111,9 @@ The training parameters can be found in [project_structure.md](project_structure
     ln -s /pvnet/data/FIT/insert_mold_train data/insert_mold_train
     ln -s /pvnet/data/FIT/insert_mold_test data/insert_mold_test
     ```
-    And remember to modify customized soft path for you customized dataset [here](https://github.com/yangfei4/clean-pvnet/blob/master/lib/datasets/dataset_catalog.py).
-3.  Process the dataset, this will create `train.json` and `fps.txt`:
+    If you use different name convention(not **_train or **_test), remember to modify customized soft path for you customized dataset [here](https://github.com/yangfei4/clean-pvnet/blob/master/lib/datasets/dataset_catalog.py).
+3.  Copy the corresponding CAD model exported as `model.ply` to the root folder of the datasets(both training and testing dataset). 
+    Run the following two commands, these will create `train.json` and `fps.txt` for training and testing datasets respectively:
     ```
     python run.py --type insert_mold
     python run.py --type insert_mold_test
@@ -117,7 +122,7 @@ The training parameters can be found in [project_structure.md](project_structure
     ```
     python run.py --type visualize_gt --cfg_file configs/insert_mold.yaml
     ```
-5. Train:
+5. Modify training setting(e.g. epoch, lr ...) in [insert_mold.yaml](https://github.com/yangfei4/clean-pvnet/blob/b197b6cf07b0afb0d4c6ccfe136a1da436467e32/configs/insert_mold.yaml#L42), and run the command:
     ```
     python train_net.py --cfg_file configs/insert_mold.yaml train.batch_size 32
     ```
@@ -132,8 +137,6 @@ The training parameters can be found in [project_structure.md](project_structure
     ```
 8. Test:
     ```
-    python run.py --type evaluate --cfg_file configs/insert_mold.yaml
-    or
     python run.py --type evaluate --cfg_file configs/insert_mold.yaml test.un_pnp True
     ```
 
