@@ -8,6 +8,7 @@ __pycache__/
 *.json
 *.pth
 *.jpg
-*.ipynb
 *.npy
-
+pvnet_ros_ws/
+build/
+devel/
