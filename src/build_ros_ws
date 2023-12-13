@@ -1,0 +1,29 @@
+#!/bin/bash
+cd "$(dirname "$0")"
+SCRIPT_DIR="$(pwd)"
+echo "Absolute Path to the PVNet's ROS src folder: $SCRIPT_DIR"
+
+git clone https://github.com/ros/geometry2.git $SCRIPT_DIR/geometry2
+cd $SCRIPT_DIR/geometry2
+git checkout -b melodic-devel
+cd $SCRIPT_DIR
+
+git clone https://github.com/ros-perception/vision_opencv.git $SCRIPT_DIR/vision_opencv
+cd $SCRIPT_DIR/vision_opencv
+git config --global --add safe.directory $SCRIPT_DIR/vision_opencv
+git checkout -b melodic
+cd ../..
+
+catkin config -DPYTHON_EXECUTABLE=$(which python) \
+-DPYTHON_INCLUDE_PATH=/usr/include/python3.6m \
+-DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so \
+-DSETUPTOOLS_DEB_LAYOUT=OFF 
+
+catkin config --install
+#############################################################################
+# NOTE - See https://github.com/ros/genmsg/issues/63#issuecomment-222887746 #
+#############################################################################
+# 1. Empy and NOT em MUST be installed
+# 2. Empy MUST be a specific version
+pip install empy==3.3.2
+catkin build cv_bridge tf2 tf2_py
