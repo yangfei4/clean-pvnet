@@ -23,7 +23,7 @@ RUN apt install -y python3-dev \
 	&& python -m pip install --upgrade pip \
 	&& python -m pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html \
 	&& python -m pip install "git+https://github.com/facebookresearch/detectron2.git@v0.6" \
-	&& python -m pip install rospkg catkin_pkg opencv-python==4.5.5.64 gin-config empy scipy transforms3d
+	&& python -m pip install rospkg catkin_pkg opencv-python==4.5.5.64 gin-config empy==3.3.2 scipy transforms3d
 
 RUN python -m pip uninstall yacs -y \
     && python -m pip install yacs --upgrade 
@@ -136,29 +136,22 @@ RUN rosdep init && rosdep update
 RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
-COPY src /opt/pvnet_ros/src
 
-
-RUN source /opt/ros/melodic/setup.bash  && apt install  -y tmux && echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+RUN source /opt/ros/melodic/setup.bash  && apt install  -y tmux ranger && echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
 
 RUN apt-get update && apt-get install -y \
       python-catkin-tools \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install netifaces
 
-WORKDiR /opt/pvnet_ros/
+WORKDiR /pvnet
+COPY /src /pvnet/src
 # NOTE reference for building pyton 3 containers: https://answers.ros.org/question/326226/importerror-dynamic-module-does-not-define-module-export-function-pyinit__tf2/
 RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modules python3-empy wget \
     && source /opt/ros/melodic/setup.bash \
-	&& catkin_make --cmake-args \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPYTHON_EXECUTABLE=/usr/bin/python3 \
-            -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
-            -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so \
-	&& echo "source /opt/pvnet_ros/devel/setup.bash" >> ~/.bashrc \
-	&& echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
+    && bash src/build_ros_ws \
+    && echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
 
-WORKDiR /pvnet
 
 # Set the container's main command
 CMD ["bash"]
