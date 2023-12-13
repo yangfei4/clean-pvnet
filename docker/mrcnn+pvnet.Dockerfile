@@ -1,8 +1,5 @@
 # This image was constrcuted following instructions outlined: http://wiki.ros.org/docker/Tutorials/Hardware%20Acceleration
 # Please refer to the resources above
-# FROM yangfei4/pvnet_clean:ros
-#FROM chapchaebytes/ur5e_collab_ws
-# FROM osrf/ros:melodic-desktop-full
 FROM nvidia/cuda:11.1.1-devel-ubuntu18.04
 SHELL ["/bin/bash", "-c"]
 
@@ -19,14 +16,11 @@ ENV NVIDIA_DRIVER_CAPABILITIES \
 # Install pytorch 1.10.0 for CUDA 11.1 (https://pytorch.org/get-started/previous-versions/#linux-and-windows-13)
 # Install Detectron2 v0.6
 RUN apt update
-# RUN apt-get install -y software-properties-common python-pip python3-pip ros-melodic-ros-control ros-melodic-ros-controllers ros-melodic-moveit ros-melodic-trac-ik-kinematics-plugin && add-apt-repository ppa:sdurobotics/ur-rtde && apt-get update && apt install librtde librtde-dev
 RUN apt-get install -y  python-pip python3-pip git
 
 RUN apt install -y python3-dev \
 	&& update-alternatives --install /usr/bin/python python /usr/bin/python3 1 \ 
 	&& python -m pip install --upgrade pip \
-	#&& python -m pip install --no-cache-dir torch==1.10.0+cu111 torchvision==0.11.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html \
-	#&& python -m pip install --no-cache-dir detectron2 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu111/torch1.10/index.html \
 	&& python -m pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html \
 	&& python -m pip install "git+https://github.com/facebookresearch/detectron2.git@v0.6" \
 	&& python -m pip install rospkg catkin_pkg opencv-python==4.5.5.64 gin-config empy scipy transforms3d
@@ -57,27 +51,6 @@ RUN apt-get update \
        libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev \
        xz-utils tk-dev libffi-dev liblzma-dev python-openssl git
 
-# Install pyenv
-# ENV PYENV_ROOT=/root/.pyenv
-# ENV PATH=/root/.pyenv/bin:$PATH
-# RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
-
-# Set up pyenv
-# RUN echo 'eval "$(pyenv init --path)"' >> ~/.bashrc \
-#     && echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc \
-#     && echo 'export PATH="/root/.pyenv/bin:$PATH"' >> ~/.bashrc \
-#     && echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-# 
-# # Install Python 3.7.12
-# RUN pyenv install 3.7.12 \
-#     && pyenv global 3.7.12
-# 
-# # Verify Python installation
-# RUN python --version
-
-# RUN apt install -yq python3.7 \
-        # python3-pip \
-
 RUN apt install -yq python-qt4 \
         libjpeg-dev \
         zip \
@@ -94,23 +67,8 @@ RUN apt install -yq python-qt4 \
     rm -rf /var/lib/apt/lists/*
 
 
-# (mini)conda
-# https://repo.anaconda.com/miniconda/
-# RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh && \
-#     sh ./Miniconda3-py37_4.8.3-Linux-x86_64.sh -b -p /opt/conda && \
-#     rm ./Miniconda3-py37_4.8.3-Linux-x86_64.sh && \
-#     export PATH=$PATH:/opt/conda/bin && \
-#     conda install conda-build
-# 
-# ENV PATH $PATH:/opt/conda/envs/env/bin:/opt/conda/bin
-
 # installing PVnet dependencies (and removing pvnet again)
 ENV PIP_ROOT_USER_ACTION=ignore
-
-# RUN cd /opt && \
-#     git clone https://github.com/yangfei4/clean-pvnet.git pvnet && \
-#     cd pvnet && \
-#     cat requirements.txt | xargs -n 1 python -m pip install
 
 RUN python -m pip install Cython==0.28.2 && \
     python -m pip install \
@@ -201,5 +159,6 @@ RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modul
 	&& echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
 
 WORKDiR /pvnet
+
 # Set the container's main command
 CMD ["bash"]
