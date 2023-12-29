@@ -5,7 +5,16 @@ from lib.datasets.dataset_catalog import DatasetCatalog
 
 def _evaluator_factory(cfg):
     task = cfg.task
-    data_source = DatasetCatalog.get(cfg.test.dataset)['id']
+    # make a instance of DatasetCatalog
+    # dataset_log = DatasetCatalog(cfg_new=cfg)
+    # args = dataset_log.get(name=dataset_name)
+    # data_source = dataset_log.get(cfg.test.dataset)['id']
+
+    dataset_log = DatasetCatalog()
+    # args = DatasetCatalog.get(dataset_name)
+    args = dataset_log.get(name = cfg.test.dataset)
+    data_source = args['id']
+
     module = '.'.join(['lib.evaluators', data_source, task])
     path = os.path.join('lib/evaluators', data_source, task+'.py')
     evaluator = imp.load_source(module, path).Evaluator(cfg.result_dir)

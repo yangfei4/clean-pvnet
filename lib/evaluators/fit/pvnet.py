@@ -17,7 +17,9 @@ class Evaluator:
 
     def __init__(self, result_dir):
         self.result_dir = result_dir
-        args = DatasetCatalog.get(cfg.test.dataset)
+        dataset_log = DatasetCatalog()
+        args = dataset_log.get(name = cfg.test.dataset)
+        # args = DatasetCatalog.get(cfg.test.dataset)
         self.ann_file = args['ann_file']
         self.coco = coco.COCO(self.ann_file)
 

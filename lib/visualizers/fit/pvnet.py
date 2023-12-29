@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from lib.utils import img_utils
 import matplotlib.patches as patches
 from lib.utils.pvnet import pvnet_pose_utils
+import cv2
 
 
 mean = pvnet_config.mean
@@ -31,6 +32,7 @@ class Visualizer:
         K = np.array(anno['K'])
         pose_gt = np.array(anno['pose'])
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
+
         # shift predicted location to Ground True
         # pose_pred[:,3] = pose_gt[:,3]
         self.compute_dif(pose_pred, pose_gt)
@@ -39,8 +41,18 @@ class Visualizer:
         corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
         fig, ax = plt.subplots(1)
+
+        # draw x y and z axes based on Rotation matrix
+        # inp = draw_axis(img=inp.cpu().numpy(), R=pose_pred[:3, :3], t=pose_pred[:, 3], K=K)
+
         ax.imshow(inp)
         ax.axis("off")
+
+        from scipy.spatial.transform import Rotation
+        R = pose_pred[:3, :3]
+        euler_angles = Rotation.from_matrix(R).as_euler('xyz', degrees=True)
+        euler_angles_rounded = [int(angle) for angle in euler_angles]
+        print("Euler angles for Estimated Pose:", euler_angles_rounded)
 
         ##### Crop around centers of corner_2d_gt #####
         # Calculate the center of corner_2d_gt
@@ -89,7 +101,7 @@ class Visualizer:
         print("Translation error: {} mm".format(translation_distance))
         print("Angular error: {} deg".format(angular_distance))
 
-    def visualize_output(self, input_img, output, batch_example):
+    def visualize_output(self, input_img, output, batch_example, K_cam=None):
         # output: 
         # 'seg'    : 1 x 2 x img_size x img_size
         # 'vertex' : 1 x 18 x img_size x img_size
@@ -107,19 +119,22 @@ class Visualizer:
         # K = np.array([[21971.333024, 0, 1.28000e+02/2], 
         #               [0, 22025.144687, 1.28000e+02/2],
         #               [0, 0, 1]])
-        K = np.array([[21971.333024, 0, 2107+64],  # u=2353.100109 v=1917.666411
-                      [0, 22025.144687, 1323+64],
+        
+        if K_cam is None:
+            K_cam = np.array([[10704.062350, 0, 2107+64], 
+                      [0, 10727.438047, 1323+64],
                       [0, 0, 1]])
+
         img_id = int(batch_example['img_id'][0])
         anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
         kpt_3d = np.concatenate([anno['fps_3d'], [anno['center_3d']]], axis=0)
         corner_3d = np.array(anno['corner_3d'])
 
-        pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
+        pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
-        corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
+        corner_2d_pred = pvnet_pose_utils.project(corner_3d, K_cam, pose_pred)
         print("Camera Intrinsics:")
-        print(K)
+        print(K_cam)
         print("Predicted Pose wrt camera:")
         print(pose_pred)
 
@@ -169,10 +184,19 @@ class Visualizer:
         # plt.savefig("/pvnet/data/evaluation/topshell.png")
 
 
-        ###########################
-        # vertex
-        ###########################
-        plt.figure(1)
+        ######################################################
+        # logic to save a sub-figure as a numpy array
+        ######################################################
+        import io
+        from PIL import Image
+        # ax = plt.subplot(224)  # this is the subplot you want to save
+        buf = io.BytesIO()  # create an in-memory binary stream
+        ax.figure.savefig(buf, format='png', bbox_inches='tight')  # save figure to binary stream
+        buf.seek(0)  # reset the position of the stream to the beginning
+        im = Image.open(buf)  # use PIL to read in the image data
+        output_np_arr = np.array(im)  # convert the image to a numpy array
+
+        # plt.figure(1)
         # from torchvision.utils import make_grid
         # import torchvision
         # Grid = make_grid(output['vertex'].permute(1,0,2,3), nrow=9, padding=25)
@@ -185,19 +209,26 @@ class Visualizer:
         # segmentaion map, note:
         # mask = torch.argmax(output['seg'], 1)
         ###########################
-        plt.figure(2)
-        plt.subplot(121)
-        plt.imshow(segmentation[0])
-        plt.axis('off')
-        plt.title('Segmentaion 1')
+        # plt.figure(1)
+        # plt.subplot(121)
+        # plt.imshow(segmentation[0])
+        # plt.axis('off')
+        # plt.title('Segmentaion 1')
 
-        plt.subplot(122)
-        plt.imshow(segmentation[1])
-        plt.axis('off')
-        plt.title('Segmentaion 2')
+        # plt.subplot(122)
+        # plt.imshow(segmentation[1])
+        # plt.axis('off')
+        # plt.title('Segmentaion 2')
+
+        # # plot output_np_arr, which is a numpy array
+        # plt.figure(2)
+        # plt.imshow(output_np_arr)
+        # plt.axis('off')
+        # plt.title('Pose Prediction')
 
         plt.show()
-        # return fig
+        # plt.close(0)
+        return pose_pred, output_np_arr
 
     def pose_matrix_to_euler(self, pose_matrix):
         from scipy.spatial.transform import Rotation
@@ -319,3 +350,32 @@ class Visualizer:
         # average_error(pose_pred, pose_gt)
         
         # ###################################################
+
+def draw_axis(img, R, t, K, scale=0.006, dist=None):
+    """
+    Draw a 6dof axis (XYZ -> RGB) in the given rotation and translation
+    :param img - rgb numpy array
+    :R - Rotation matrix, 3x3
+    :t - 3d translation vector, in meters (dtype must be float)
+    :K - intrinsic calibration matrix , 3x3
+    :scale - factor to control the axis lengths
+    :dist - optional distortion coefficients, numpy array of length 4. If None distortion is ignored.
+    """
+    img = img.astype(np.float32)
+    rotation_vec, _ = cv2.Rodrigues(R) #euler rotations
+    dist = np.zeros(4, dtype=float) if dist is None else dist
+    points = scale * np.float32([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]).reshape(-1, 3)
+    axis_points, _ = cv2.projectPoints(points, rotation_vec, t, K, dist)
+    
+    axis_points = axis_points.astype(int)
+    corner = tuple(axis_points[3].ravel())
+    img = cv2.line(img, corner, tuple(axis_points[0].ravel()), (255, 0, 0), 1)
+    # img = cv2.putText(img, "X", tuple(axis_points[0].ravel()), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 0, 0), 1)
+
+    img = cv2.line(img, corner, tuple(axis_points[1].ravel()), (0, 255, 0), 1)
+    # img = cv2.putText(img, "Y", tuple(axis_points[1].ravel()), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 1)
+
+    img = cv2.line(img, corner, tuple(axis_points[2].ravel()), (0, 0, 255), 1)
+
+    img = img.astype(np.uint8)
+    return img
