@@ -65,22 +65,7 @@ class Visualizer:
         ax.set_ylim(center_y - crop_size, center_y + crop_size)
         ################################################
 
-
-        # Calculate center of bounding box
-        center_x = np.mean(corner_2d_pred[:, 0])
-        center_y = np.mean(corner_2d_pred[:, 1])
-        shift_x = center_x - corner_2d_pred[6, 0]
-        shift_y = center_y - corner_2d_pred[6, 1]
-        # Plot X-axis
-        ax.plot([center_x , corner_2d_pred[2, 0]+shift_x], [center_y, corner_2d_pred[2, 1]+shift_y], color='r', linewidth=1)
-        ax.plot([center_x , corner_2d_gt[2, 0]+shift_x], [center_y, corner_2d_gt[2, 1]+shift_y], color='r', linewidth=1)
-        # Plot Y-axis
-        ax.plot([center_x, corner_2d_pred[4, 0]+shift_x], [center_y, corner_2d_pred[4, 1]+shift_y], color='g', linewidth=1)
-        ax.plot([center_x, corner_2d_gt[4, 0]+shift_x], [center_y, corner_2d_gt[4, 1]+shift_y], color='g', linewidth=1)
-        # Plot Z-axis
-        ax.plot([center_x, corner_2d_pred[7, 0]+shift_x], [center_y, corner_2d_pred[7, 1]+shift_y], color='b', linewidth=1)
-        ax.plot([center_x, corner_2d_gt[7, 0]+shift_x], [center_y, corner_2d_gt[7, 1]+shift_y], color='b', linewidth=1)
-
+        # draw bounding box
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='g'))
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
@@ -111,14 +96,6 @@ class Visualizer:
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         segmentation = output['seg'][0].detach().cpu().numpy()
         mask = output['mask'][0].detach().cpu().numpy()
-        # vertex = output['vertex'][0][0].detach().cpu().numpy()
-        
-        # K = np.array([[1.90856e+03, 0.00000e+00, 1.28000e+02/2],
-        #               [0.00000e+00, 1.90906e+03, 1.28000e+02/2],
-        #               [0.00000e+00, 0.00000e+00, 1.00000e+00]])
-        # K = np.array([[21971.333024, 0, 1.28000e+02/2], 
-        #               [0, 22025.144687, 1.28000e+02/2],
-        #               [0, 0, 1]])
         
         if K_cam is None:
             K_cam = np.array([[10704.062350, 0, 2107+64], 
@@ -165,17 +142,6 @@ class Visualizer:
         ax = plt.subplot(224)
         ax.imshow(input_img)
 
-        # Calculate center of bounding box
-        center_x = np.mean(corner_2d_pred[:, 0])
-        center_y = np.mean(corner_2d_pred[:, 1])
-        shift_x = center_x - corner_2d_pred[6, 0]
-        shift_y = center_y - corner_2d_pred[6, 1]
-        # Plot X-axis
-        ax.plot([center_x , corner_2d_pred[2, 0]+shift_x], [center_y, corner_2d_pred[2, 1]+shift_y], color='r', linewidth=1)
-        # Plot Y-axis
-        ax.plot([center_x, corner_2d_pred[4, 0]+shift_x], [center_y, corner_2d_pred[4, 1]+shift_y], color='g', linewidth=1)
-        # Plot Z-axis
-        ax.plot([center_x, corner_2d_pred[7, 0]+shift_x], [center_y, corner_2d_pred[7, 1]+shift_y], color='b', linewidth=1)
         # Add patches for corner_2d_gt and corner_2d_pred
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
@@ -315,41 +281,6 @@ class Visualizer:
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
         plt.show()
 
-
-        # Not appliable because of gimbal lock
-        # ###################################################
-        # def average_error(pose_pred, pose_gt):
-        #     from scipy.spatial.transform import Rotation
-
-        #     translation_error = np.abs(pose_pred[:, 3] - pose_gt[:, 3])
-
-        #     rotation_pred = Rotation.from_matrix(pose_pred[:, :3])
-        #     rotation_gt = Rotation.from_matrix(pose_gt[:, :3])
-        #     euler_error = rotation_pred.inv() * rotation_gt
-        #     euler_error = euler_error.as_euler('zyx', degrees=True)
-        #     euler_error = np.abs(euler_error)
-        #     print(pose_gt)
-        #     print(pose_pred)
-        #     print('Translation Error (X-axis): {:.1f} mm'.format(translation_error[0] * 1000))
-        #     print('Translation Error (Y-axis): {:.1f} mm'.format(translation_error[1] * 1000))
-        #     print('Translation Error (Z-axis): {:.1f} mm'.format(translation_error[2] * 1000))
-
-        #     print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_error[0]))
-        #     print('Euler Angle Error (Y-axis): {:.1f} deg'.format(euler_error[1]))
-        #     print('Euler Angle Error (Z-axis): {:.1f} deg'.format(euler_error[2]))
-
-        #     euler_pred = rotation_pred.as_euler('zyx', degrees=True)
-        #     euler_gt = rotation_gt.as_euler('zyx', degrees=True)
-        #     print('Euler Angle (X-axis) - pred: {:.1f} deg'.format(euler_pred[0]))
-        #     print('Euler Angle (Y-axis) - pred: {:.1f} deg'.format(euler_pred[1]))
-        #     print('Euler Angle (Z-axis) - pred: {:.1f} deg'.format(euler_pred[2]))
-
-        #     print('Euler Angle (X-axis) - gt: {:.1f} deg'.format(euler_gt[0]))
-        #     print('Euler Angle (Y-axis) - gt: {:.1f} deg'.format(euler_gt[1]))
-        #     print('Euler Angle (Z-axis) - gt: {:.1f} deg'.format(euler_gt[2]))
-        # average_error(pose_pred, pose_gt)
-        
-        # ###################################################
 
 def draw_axis(img, R, t, K, scale=0.006, dist=None):
     """
