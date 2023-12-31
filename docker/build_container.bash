@@ -1,6 +1,8 @@
 #!/bin/bash
-container_name=${1:-cobot_vision}
-image_name=${2:-$container_name}
+image_name=${1:-cobot_vision}
+# container_name=${2:-$container_name}
+# container_name=${2:-cobot_vision_yangfei}
+container_name=${2:-cobot_vision}
 
 xhost +local:docker 
 echo "starting pvnet docker"
