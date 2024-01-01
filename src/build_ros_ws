@@ -39,3 +39,5 @@ catkin config --install
 # 2. Empy MUST be a specific version
 pip install empy==3.3.2
 catkin build cv_bridge tf2 tf2_py
+echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
+source /pvnet/devel/setup.bash
