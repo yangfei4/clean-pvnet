@@ -3,6 +3,17 @@ cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 echo "Absolute Path to the PVNet's ROS src folder: $SCRIPT_DIR"
 
+ROOT=/pvnet
+CUDA_HOME="/usr/local/cuda"
+
+cd $ROOT/lib/csrc && \
+cd ransac_voting && \
+TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
+cd ../nn && \
+TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
+cd ../fps && \
+TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace 
+
 git clone https://github.com/ros/geometry2.git $SCRIPT_DIR/geometry2
 cd $SCRIPT_DIR/geometry2
 git checkout -b melodic-devel
