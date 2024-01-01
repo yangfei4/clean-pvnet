@@ -42,20 +42,6 @@ def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
     pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
 
-
-    def flip_yz_axes(pose_matrix):
-        # Create a transformation matrix for flipping y and z axes by 180 degrees
-        flip_matrix = np.array([
-            [1, 0, 0, 0],
-            [0, -1, 0, 0],
-            [0, 0, -1, 0],
-            [0, 0, 0, 1]
-        ])
-        # Multiply the original pose matrix by the flip matrix
-        flipped_pose = np.dot(pose_matrix, flip_matrix)
-        return flipped_pose
-    
-    pose_pred = flip_yz_axes(pose_pred)
     if is_vis:
         visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred)
 
