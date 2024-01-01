@@ -1,3 +1,7 @@
+"""
+Purpose: This script contains helper functions for the brute-force process of taking a pose estimate from PVNet and approximating the nearest stable pose.
+Author: Yangfei Dai (yangfei4@illinois.edu)
+"""
 from scipy.spatial.transform import Rotation
 import numpy as np
 

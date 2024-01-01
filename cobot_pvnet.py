@@ -1,3 +1,7 @@
+"""
+Purpose: This is a non-ROS script that contains the pose estimation pipeline. Pose estimation is a two stage process: 1) Mask R-CNN + 2) PVNet
+Author: Hameed Abdul (hameeda2@illinois.edu) and Yangfei Dai (yangfei4@illinois.edu)
+"""
 import os
 import json
 import argparse

@@ -1,6 +1,6 @@
 """
-This script uses Mask R-CNN and Pvnet to perform pose estimation
-Author: Yangfei Dai and Hameed Abdul
+Purpose: This is a ROS script that contains the pose estimation pipeline. Pose estimation is a two stage process: 1) Mask R-CNN + 2) PVNet
+Author: Hameed Abdul (hameeda2@illinois.edu) and Yangfei Dai (yangfei4@illinois.edu)
 """
 from typing import List, Dict
 

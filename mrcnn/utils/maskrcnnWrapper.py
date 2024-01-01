@@ -1,3 +1,7 @@
+"""
+Purpose: This script contains helper functions and a wrapper class for using Mask R-CNN for inference
+Author: Hameed Abdul (hameeda2@illinois.edu) and Yangfei Dai (yangfei4@illinois.edu)
+"""
 from pathlib import Path
 from typing import Union
 
