@@ -167,6 +167,7 @@ python cobot_pvnet.py --type inference
 ### Pose estimation with ROS
 **The command below can be used in conjuction with the `vision based picking` instructions in the `ur5e_collab_ws` repo's readme.**
 ```bash
+source devel/setup.bash # Run this EVERY time you start the container
 python cobot_pipeline.py --type inference
 ```
 
