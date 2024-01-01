@@ -1,5 +1,6 @@
 # FROM nvidia/cuda:9.0-devel-ubuntu16.04
-FROM nvidia/cuda:11.1.1-devel-ubuntu18.04
+# FROM nvidia/cuda:11.1.1-devel-ubuntu18.04
+FROM chapchaebytes/ur5e_collab_ws
 # Hack to not have tzdata cmdline config during build
 RUN ln -fs /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
@@ -9,7 +10,7 @@ RUN ln -fs /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # - https://github.com/zju3dv/clean-pvnet
 
 # RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys <full_key_id>
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
 
 
 RUN apt-get update && \

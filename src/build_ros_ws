@@ -11,7 +11,8 @@ cd $SCRIPT_DIR
 git clone https://github.com/ros-perception/vision_opencv.git $SCRIPT_DIR/vision_opencv
 cd $SCRIPT_DIR/vision_opencv
 git config --global --add safe.directory $SCRIPT_DIR/vision_opencv
-git checkout -b melodic
+git checkout 1.13.0
+#git checkout -b melodic
 cd ../..
 
 catkin config -DPYTHON_EXECUTABLE=$(which python) \
