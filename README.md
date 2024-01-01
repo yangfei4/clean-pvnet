@@ -74,11 +74,11 @@ Another way is to use the following commands.
 
 The training parameters can be found in [project_structure.md](project_structure.md).
 
-1. Create a synthetic dataset with mask and pose annotation using Blenderproc2. See generation pipeline [here](https://github.com/yangfei4/BlenderProc2_Cobot?tab=readme-ov-file#sythetic-data-generation-for-pvnet).
+1. Create a synthetic dataset with mask and pose annotation using Blenderproc2 project(another deliverable named as `syn_data_generation_pipeline`). For your convenience, three training datasets and three testing dataset for each category(mainshell, topshell and insert_mold) are already included in `data/FIT` folder. Each training dataset consists of 20,000 images and testing dataset consists of 2,000 images.
 2. Organize the dataset as the following structure:
     ```
     ├── /path/to/dataset
-    │   ├── model.ply
+    │   ├── model.ply # copy corresponding CAD from exsiting datasets to here
     │   ├── rgb/
     │   │   ├── 0.jpg
     │   │   ├── ...
@@ -140,6 +140,37 @@ The training parameters can be found in [project_structure.md](project_structure
     python run.py --type evaluate --cfg_file configs/insert_mold.yaml test.un_pnp True
     ```
 
+## Inference with Trained Models
+
+## Prequisites
+1. *Once the PVNet models, have been trained Mask R-CNN and PVNet is used to estimate the pose of each part. To perform picking with the robot we need to calibrate the camera in the robot's base frame.* To get the `T_camera_in_base` do the following:
+    - In the `ur5e_collab_ws`, follow the insturctions in the readme for Extrinsic claibration.
+    - Save `T_camera_in_base` as a 4x4 matrix in **this** directory e.g. `${current directory}/T_camera_in_base.npy`.
+
+2. Our current pipeline, assumes that the parts are lying on an this april tagboard. Therefor the pose of the tagboard in the camera frame is needed.
+    - Take a picture of the tagboard in the workspace
+    - Open `Estimate_T_tagboard_in_camera.ipynb` and update the `IMG_PATH` and run the notebook
+    - This will produce `T_tagboard_in_cam.npy` in the pvnet repo.  
+
+![img]
+
+[img]: https://imgur.com/VvtPCO8.png
+[ext_cal]: https://imgur.com/ZrX2xtf.png
+[tagboard]: https://imgur.com/B1K27rv.png
+
+### Pose estimation
+**The command below uses a provided dataset in `data/11_23_image_dataset` this contains a `T_camera_in_base.npy` and `T_tagboard_in_camera.npy`.**
+```bash
+python cobot_pvnet.py --type inference
+```
+
+### Pose estimation with ROS
+**The command below can be used in conjuction with the `vision based picking` instructions in the `ur5e_collab_ws` repo's readme.**
+```bash
+python cobot_pipeline.py --type inference
+```
+
+
 ## Citation
 
 If you find this code useful for your research, please use the following BibTeX entry.
@@ -172,3 +203,5 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
+
+
