@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Union
 
 import cv2
-import detectron2
 import gin
 import numpy as np
 import torch
