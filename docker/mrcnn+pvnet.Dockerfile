@@ -94,22 +94,6 @@ RUN python -m pip install Cython==0.28.2 && \
 
 
 RUN python -m pip install transforms3d pillow==8.1.0 ninja
-
-ENV ROOT=/opt/pvnet
-ENV CUDA_HOME="/usr/local/cuda"
-
-# NOTE: Be sure that the arch version is compatible with your GPU/CUDA version
-# See: https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
-RUN cd /opt && \
-    git clone https://github.com/yangfei4/clean-pvnet.git pvnet && \cd $ROOT/lib/csrc && \
-    cd ransac_voting && \
-    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
-    cd ../nn && \
-    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
-    cd ../fps && \
-    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
-    rm -rf $ROOT 
-
 CMD ["/bin/bash"]
 
 
@@ -133,11 +117,31 @@ RUN apt-get install -y python-rosdep python-rosinstall python-rosinstall-generat
 # Initialize rosdep
 RUN rosdep init && rosdep update
 # Set up ROS environment
-RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc \
-    && source ~/.bashrc
 
+ENV ROOT=/opt/pvnet
+ENV CUDA_HOME="/usr/local/cuda"
+
+# NOTE: Be sure that the arch version is compatible with your GPU/CUDA version
+# See: https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+RUN cd /opt && \
+    git clone https://github.com/yangfei4/clean-pvnet.git pvnet && \cd $ROOT/lib/csrc && \
+    cd ransac_voting && \
+    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
+    cd ../nn && \
+    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace && \
+    cd ../fps && \
+    TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6" python setup.py build_ext --inplace #&& \
+
+RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modules python3-empy wget \
+    && source /opt/ros/melodic/setup.bash \
+    && bash $ROOT/src/build_ros_ws \
+    && echo "source ${ROOT}/devel/setup.bash" >> ~/.bashrc
+    # rm -rf $ROOT 
 
 RUN source /opt/ros/melodic/setup.bash  && apt install  -y tmux ranger && echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc \
+    && source ~/.bashrc
 
 RUN apt-get update && apt-get install -y \
       python-catkin-tools \
@@ -145,13 +149,13 @@ RUN apt-get update && apt-get install -y \
 RUN pip install netifaces
 
 WORKDiR /pvnet
-COPY /src /pvnet/src
+# COPY /src /pvnet/src
 # NOTE reference for building pyton 3 containers: https://answers.ros.org/question/326226/importerror-dynamic-module-does-not-define-module-export-function-pyinit__tf2/
-RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modules python3-empy wget \
-    && source /opt/ros/melodic/setup.bash \
-    && bash src/build_ros_ws \
-    && echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
+# RUN apt update && apt install -y python3-catkin-pkg-modules python3-rospkg-modules python3-empy wget \
+#     && source /opt/ros/melodic/setup.bash \
+#     && bash src/build_ros_ws \
+#     && echo "source /pvnet/devel/setup.bash" >> ~/.bashrc
 
 
 # Set the container's main command
-CMD ["bash"]
+#CMD ["bash"]
