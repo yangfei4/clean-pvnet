@@ -215,11 +215,6 @@ class CobotPoseEstNode(object):
         # which is unexpected, we need to convert it to the tagUp frame
         self.T_tagboard_in_camera = np.load(T_tagboard_in_camera)
         
-        # T_tagUp_in_tagDown = np.eye(4)
-        # T_tagUp_in_tagDown[:3, :3] = Rotation.from_euler('xyz', [180, 0, 0], degrees=True).as_matrix()
-        # T_tagUp_in_cam = T_tagDown_in_cam @ T_tagUp_in_tagDown
-        # self.T_tagboard_in_camera = T_tagUp_in_cam
-        
         self.T_base_in_camera = np.linalg.inv(self.T_camera_in_base)
         self.T_camera_in_tagboard = np.linalg.inv(self.T_tagboard_in_camera)
 
