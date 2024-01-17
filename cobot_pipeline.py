@@ -289,12 +289,10 @@ class CobotPoseEstNode(object):
 
                 tf_name = f"stable_pose_in_base/{idx}/{cls_name}"
                 # TODO (ham): measure offset and add here. You shold project to camera frame, replace the z value of each part and then project to back to the robot frame
-                T_part_in_tagboard  = self.T_camera_in_tagboard @ T_part_in_cam
+                T_part_in_base = self.T_camera_in_base @ T_part_in_cam
+                T_part_in_tagboard = np.linalg.inv(self.T_tagboard_in_base)  @ T_part_in_base
 
-
-
-                R_stable_part_in_tagboard = find_closest_stable_pose(stable_poses_R, T_part_in_tagboard[:3, :3])
-                T_stable_part_in_tagboard = construct_T_from_R_sta_and_T_est(R_stable_part_in_tagboard, T_part_in_tagboard, alphas_insertmold, z_offsets_insertmold)
+                T_stable_part_in_tagboard = construct_T_stable_from_T_est(T_part_in_tagboard, cls)
                 T_stable_part_in_base = self.T_tagboard_in_base @ T_stable_part_in_tagboard
 
                 R        = T_stable_part_in_base[:3, :3]
