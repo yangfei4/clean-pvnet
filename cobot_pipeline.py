@@ -34,7 +34,7 @@ from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
 from mrcnn.utils.maskrcnnWrapper import MaskRCNNWrapper
-from mrcnn.stable_poses_est import find_closest_stable_pose, construct_T_from_R_sta_and_T_est, stable_poses_R, alphas_insertmold, z_offsets_insertmold
+from mrcnn.stable_poses_est import find_closest_stable_pose, construct_T_stable_from_T_est
            
 
 def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_pose_H: bool=True):
@@ -219,7 +219,14 @@ class CobotPoseEstNode(object):
         self.T_camera_in_tagboard = np.linalg.inv(self.T_tagboard_in_camera)
 
         self.T_base_in_tagboard = self.T_camera_in_tagboard @ self.T_base_in_camera
-        self.T_tagboard_in_base = np.linalg.inv(self.T_base_in_tagboard)
+
+        inch2m = 0.0254
+        adpaterplate_thickness = 1 * inch2m
+        tagboard_thickness = 0.125 * inch2m
+        Z_OFFSET_TAG_IN_BASE = -0.875 * inch2m # 1" adapter plate - 0.125" tagboard thickness
+
+        self.T_tagboard_in_base = np.eye(4)
+        self.T_tagboard_in_base[2, 3] = Z_OFFSET_TAG_IN_BASE
 
 
         print(f"T_camera_in_base\n {self.T_camera_in_base}\n{'='*50}")
