@@ -297,8 +297,9 @@ class CobotPoseEstNode(object):
                 publish_tf2(R, t, 'world', tf_name)
                 self.tf_dict[tf_name] = (R, t)
                 print(f"{'='*50}\n{tf_name}\n{'='*50}")
-                print(f"T_part_in_cam[{idx}]\n{T_part_in_cam}\n{'='*50}")
-                print(f"T_stable_part_in_base{idx}]\n{T_stable_part_in_base}\n{'='*50}")
+                print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
+                print(f"T_stable_part_in_base[{idx}]\n{T_stable_part_in_base}\n{'='*50}")
+                print(f"Mrcnn UV coords\n{input_data['uv']}\n{'='*50}")
 
 
         
@@ -323,7 +324,7 @@ class CobotPoseEstNode(object):
                 for tf_name, (R,t) in self.tf_dict.items():
                     euler = np.array([ax * 180 / np.pi for ax in mat2euler(R)])
                     quat = mat2quat(R)
-                    print(f"{tf_name:<50}: Quaternion {quat} | Euler {euler}")
+                    print(f"{tf_name:<50}: XYZ pos {t} | Euler {euler}")
                     
             rospy.sleep(0.5)
             reset_robot_flag = Bool()
