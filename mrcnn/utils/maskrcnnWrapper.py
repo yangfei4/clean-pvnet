@@ -189,6 +189,7 @@ class MaskRCNNWrapper(object):
             v = Visualizer(img)
         output_img = v.draw_instance_predictions(prediction["instances"].to("cpu"))
         output_img = output_img.get_image()[:, :, ::-1]
+        plot_im(output_img, "mrcnn_full_pred.png")
 
         # TODO: crop rois around detected bbox centers
         # TODO: store uv info, rois by class pred
