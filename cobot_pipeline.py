@@ -33,9 +33,64 @@ from lib.visualizers import make_visualizer
 from lib.datasets.transforms import make_transforms
 from lib.datasets import make_data_loader
 from lib.utils.pvnet import pvnet_pose_utils
+import mrcnn.utils.visualization as vis
 from mrcnn.utils.maskrcnnWrapper import MaskRCNNWrapper
 from mrcnn.stable_poses_est import find_closest_stable_pose, construct_T_stable_from_T_est
            
+
+# Camera Intrinsics
+# Instrinsics April 2023 - 25mm lens
+# See https://github.com/cobot-factory/ur5e_collab_ws/blob/main/src/cobot_resources/camera/basler_25mm_intrinsics_April.28.23.yaml
+camera = {
+    "fx": 10704.062350, 
+    "fy": 10727.438047, 
+    "ox": 2694.112343, 
+    "oy": 1669.169773, 
+    "w": 5472, 
+    "h": 3648 
+}
+
+K = np.stack([[camera['fx'], 0, camera['ox']],
+              [0, camera['fy'], camera['oy']],
+              [0,            0,           1]])
+
+def sample_points(geo_path, num_points=10000):
+    import open3d as o3d 
+    # from open3d.geometry import TriangleMesh as tri
+    # from open3d.io import read_triangle_mesh
+    ply = o3d.io.read_triangle_mesh(geo_path)
+    pts = np.array(o3d.geometry.TriangleMesh.sample_points_uniformly(ply, num_points).points)
+    return np.block([pts, np.ones((num_points, 1))]).T
+
+def uv_2_xyz(uv, t_part_in_base, T_camera_in_base):
+    _, _, z_part_in_base = t_part_in_base
+    z_scale = T_camera_in_base[2, 3] - z_part_in_base 
+    XYZ_cam = z_scale * np.linalg.inv(K) @ np.array([*uv, 1]).T 
+    XYZ_base = T_camera_in_base @ np.array([*XYZ_cam, 1]) 
+    return XYZ_base[:3]
+
+def draw_cad_model(T_part_in_base, cls, img, T_base_in_cam, crop_dim=128):
+
+    paths_to_geo = ("./data/FIT/mainshell_test/model.ply",
+                    "./data/FIT/topshell_test/model.ply",
+                    "./data/FIT/insert_mold_test/model.ply") 
+    geo_path = paths_to_geo[cls]
+    P_part = sample_points(geo_path)
+
+    P = K @ np.eye(3, 4) @ T_base_in_cam
+    cent_p = P @ T_part_in_base[:, 3]
+    cent_pix = (cent_p / cent_p[2])[:2].astype(np.uint)
+    
+    
+    im_pix = P @ T_part_in_base @ P_part
+    im_pix /= im_pix[2]
+    
+    ind = im_pix[:2].astype(np.uint)
+    
+    img[ind[1, :], ind[0, :]] = 255
+    
+    crop_roi = vis.crop_roi(img, cent_pix.tolist(), crop_dim)
+    return img, crop_roi
 
 def predict_to_pose(pvnet_output, cfg, K_cam, input_img, is_vis: bool=False, is_pose_H: bool=True):
     kpt_3d = np.concatenate([cfg.fps_3d, [cfg.center_3d]], axis=0)
@@ -79,6 +134,33 @@ def draw_axis(img, R, t, K, scale=0.006, dist=None):
 
     img = img.astype(np.uint8)
     return img
+
+def visualize_reprojection(input_roi, raw_pvnet_roi, stable_pose_roi, refined_position_roi):
+    figsize=(14, 14)
+    fig = plt.figure(figsize=figsize,tight_layout=True)
+    plt.subplot(141)
+    plt.imshow(input_roi)
+    plt.axis('off')
+    plt.title('Input Image')
+
+    plt.subplot(142)
+    plt.imshow(raw_pvnet_roi)
+    plt.axis('off')
+    plt.title('Reprojection of PVNet Predicted Pose')
+
+    plt.subplot(143)
+    plt.imshow(stable_pose_roi)
+    plt.axis('off')
+    plt.title('Reprojection of Stable Pose')
+                            
+    plt.subplot(144)
+    plt.imshow(refined_position_roi)
+    plt.axis('off')
+    plt.title('Reprojection of Stable Pose & Refined Pos.')
+
+    plt.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+    fig.set_tight_layout(True)
+    plt.show()
 
 def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
@@ -280,7 +362,7 @@ class CobotPoseEstNode(object):
                 print(f"uv: {uv}  |Projected uv: {t}")
         else:
 
-
+            vis_queue = []
             for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
                 cls = input_data["class"]
@@ -294,17 +376,29 @@ class CobotPoseEstNode(object):
 
                 T_stable_part_in_tagboard = construct_T_stable_from_T_est(T_part_in_tagboard, cls)
                 T_stable_part_in_base = self.T_tagboard_in_base @ T_stable_part_in_tagboard
+                T_old_stable_part_pose = T_stable_part_in_base.copy()
 
                 R        = T_stable_part_in_base[:3, :3]
-                t        = T_stable_part_in_base[:3, 3]
+                t        = uv_2_xyz(input_data["uv"], T_stable_part_in_base[:3, 3], self.T_camera_in_base)
+                # t  = T_part_in_base[:3, 3]
+                T_stable_part_in_base[:3, 3] = t
+
+                input_roi = input_data["image_128x128"]
+                _, raw_roi = draw_cad_model(T_part_in_base, cls, self._im.copy(), self.T_base_in_camera)
+                _, stable_roi = draw_cad_model(T_old_stable_part_pose, cls, self._im.copy(), self.T_base_in_camera)
+                _, corrected_roi = draw_cad_model(T_stable_part_in_base, cls, self._im.copy(), self.T_base_in_camera)
+
+                vis_queue.append((input_roi, raw_roi, stable_roi, corrected_roi))
                 
                 # Publish transform
                 publish_tf2(R, t, 'world', tf_name)
                 self.tf_dict[tf_name] = (R, t)
                 print(f"{'='*50}\n{tf_name}\n{'='*50}")
                 print(f"T_part_in_base[{idx}]\n{T_part_in_base}\n{'='*50}")
-                print(f"T_stable_part_in_base[{idx}]\n{T_stable_part_in_base}\n{'='*50}")
-                print(f"Mrcnn UV coords\n{input_data['uv']}\n{'='*50}")
+                print(f"BEFORE Corection T_stable_part_in_base[{idx}]\n{T_old_stable_part_pose}\n{'='*50}")
+                print(f"AFTER Correction T_stable_part_in_base[{idx}]\n{T_stable_part_in_base}\n{'='*50}")
+
+            [visualize_reprojection(*vis) for vis in vis_queue]
 
 
         
