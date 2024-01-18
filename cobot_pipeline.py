@@ -2,7 +2,7 @@
 Purpose: This is a ROS script that contains the pose estimation pipeline. Pose estimation is a two stage process: 1) Mask R-CNN + 2) PVNet
 Author: Hameed Abdul (hameeda2@illinois.edu) and Yangfei Dai (yangfei4@illinois.edu)
 """
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import gin
 import argparse
@@ -285,6 +285,7 @@ class CobotPoseEstNode(object):
                  node_name: str,
                  T_camera_in_base: str=gin.REQUIRED,
                  T_tagboard_in_camera: str=gin.REQUIRED,
+                 _im: Optional[np.ndarray]=None,
                  ):
         self.__dict__.update(locals())
         self._static_br = tf2_ros.StaticTransformBroadcaster()
