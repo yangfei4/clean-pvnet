@@ -69,7 +69,7 @@ def uv_2_xyz(uv, t_part_in_base, T_camera_in_base):
     XYZ_base = T_camera_in_base @ np.array([*XYZ_cam, 1]) 
     return XYZ_base[:3]
 
-def draw_cad_model(T_part_in_base, cls, img, T_base_in_cam, crop_dim=128):
+def draw_cad_model(T_part_in_base, cls, img, T_base_in_cam, crop_dim=64):
 
     paths_to_geo = ("./data/FIT/mainshell_test/model.ply",
                     "./data/FIT/topshell_test/model.ply",
