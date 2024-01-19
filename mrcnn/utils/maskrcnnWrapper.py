@@ -106,7 +106,8 @@ class MaskRCNNWrapper(object):
         self._load_model()
 
         # TODO: Update this for the number of tagboards to consider
-        self.TAGBOARD_CENT = (2000, 2200)
+        # self.TAGBOARD_CENT = (2000, 2200)
+        self.TAGBOARD_CENT = (1200, 3648 // 2)
         self.model_input_wh = (2208, 1242)
         self.call_count = 0
 
