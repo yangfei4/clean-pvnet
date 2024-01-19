@@ -380,8 +380,10 @@ class CobotPoseEstNode(object):
                 T_old_stable_part_pose = T_stable_part_in_base.copy()
 
                 R        = T_stable_part_in_base[:3, :3]
+                # Use Mask R-CNN's xy predictions with a known Z value 
                 t        = uv_2_xyz(input_data["uv"], T_stable_part_in_base[:3, 3], self.T_camera_in_base)
-                # t  = T_part_in_base[:3, 3]
+                t  = np.array([*t[:2], T_stable_part_in_base[2, 3]])
+
                 T_stable_part_in_base[:3, 3] = t
 
                 input_roi = input_data["image_128x128"]
