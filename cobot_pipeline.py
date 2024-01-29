@@ -69,7 +69,7 @@ def uv_2_xyz(uv, t_part_in_base, T_camera_in_base):
     XYZ_base = T_camera_in_base @ np.array([*XYZ_cam, 1]) 
     return XYZ_base[:3]
 
-def draw_cad_model(T_part_in_base, cls, img, T_base_in_cam, crop_dim=128):
+def draw_cad_model(T_part_in_base, cls, img, T_base_in_cam, crop_dim=64):
 
     paths_to_geo = ("./data/FIT/mainshell_test/model.ply",
                     "./data/FIT/topshell_test/model.ply",
@@ -380,8 +380,10 @@ class CobotPoseEstNode(object):
                 T_old_stable_part_pose = T_stable_part_in_base.copy()
 
                 R        = T_stable_part_in_base[:3, :3]
+                # Use Mask R-CNN's xy predictions with a known Z value 
                 t        = uv_2_xyz(input_data["uv"], T_stable_part_in_base[:3, 3], self.T_camera_in_base)
-                # t  = T_part_in_base[:3, 3]
+                t  = np.array([*t[:2], T_stable_part_in_base[2, 3]])
+
                 T_stable_part_in_base[:3, 3] = t
 
                 input_roi = input_data["image_128x128"]
