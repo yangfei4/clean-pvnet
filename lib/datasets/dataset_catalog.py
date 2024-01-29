@@ -20,6 +20,18 @@ class DatasetCatalog(object):
             'data_root': 'data/{}_test'.format(self.cfg.cls_type),
             'ann_file': 'data/{}_test/train.json'.format(self.cfg.cls_type),
             'split': 'test'
+        },
+        'LinemodTest': {
+            'id': 'linemod',
+            'data_root': 'data/linemod/{}/JPEGImages'.format(self.cfg.cls_type),
+            'ann_file': 'data/linemod/{}/test.json'.format(self.cfg.cls_type),
+            'split': 'test'
+        },
+        'LinemodTrain': {
+            'id': 'linemod',
+            'data_root': 'data/linemod/{}/JPEGImages'.format(self.cfg.cls_type),
+            'ann_file': 'data/linemod/{}/train.json'.format(self.cfg.cls_type),
+            'split': 'train'
         }
     }
 

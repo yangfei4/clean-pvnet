@@ -26,7 +26,8 @@ class Evaluator:
         self.result_dir = os.path.join(result_dir, cfg.test.dataset)
         os.system('mkdir -p {}'.format(self.result_dir))
 
-        args = DatasetCatalog.get(cfg.test.dataset)
+        dataset_log = DatasetCatalog()
+        args = dataset_log.get(cfg.test.dataset)
         self.ann_file = args['ann_file']
         self.coco = coco.COCO(self.ann_file)
 
