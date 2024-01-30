@@ -162,6 +162,54 @@ def visualize_reprojection(input_roi, raw_pvnet_roi, stable_pose_roi, refined_po
     fig.set_tight_layout(True)
     plt.show()
 
+def visualize_reprojection_keypoints(input_roi, raw_pvnet_fps, stable_pose_fps, refined_position_fps):
+    figsize=(14, 14)
+    fig = plt.figure(figsize=figsize,tight_layout=True)
+    plt.subplot(141)
+    plt.imshow(input_roi)
+    plt.axis('off')
+    plt.title('Input Image')
+
+    plt.subplot(142)
+    plt.imshow(raw_pvnet_fps)
+    plt.axis('off')
+    plt.title('PVNet Predicted Pose')
+
+    plt.subplot(143)
+    plt.imshow(stable_pose_fps)
+    plt.axis('off')
+    plt.title('Stable Pose')
+                            
+    plt.subplot(144)
+    plt.imshow(refined_position_fps)
+    plt.axis('off')
+    plt.title('Stable Pose & Refined Pos.')
+
+    plt.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+    fig.set_tight_layout(True)
+    plt.show()
+
+def keypoint_to_camera_frame(T_part_in_cam, keypoints_3d):
+    if(T_part_in_cam.shape[0]==3):
+        T_part_in_cam = np.vstack([T_part_in_cam, np.array([0,0,0,1])])
+    T_keypoint_in_part = np.eye(4)
+    T_keypoint_in_part[:3, 3] = keypoints_3d
+    T_keypoint_in_cam = T_part_in_cam @ T_keypoint_in_part
+    return T_keypoint_in_cam
+
+def reproject_keypoints(img, K_cam, pose_pred, cfg):
+    fps_3d = cfg['fps_3d']
+
+    # reproject keypoints from pose_pred
+    for i in range(len(fps_3d)):
+        fps = fps_3d[i]
+        T_keypoint_in_cam = keypoint_to_camera_frame(pose_pred, fps)
+        P = K_cam @ np.column_stack([np.eye(3), np.zeros((3, 1))])
+        keypoint_in_2d = P @ np.append(T_keypoint_in_cam[:3,3],[1], axis=0)
+        keypoint_in_2d /= keypoint_in_2d[2]
+        cv2.circle(img, (int(keypoint_in_2d[0]), int(keypoint_in_2d[1])), 2, (255, 0, 0), -1)  # -1 fills the circle
+    return img
+
 def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     corner_3d = cfg.corner_3d
     kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
@@ -169,25 +217,28 @@ def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
     mask = pvnet_output['mask'][0].detach().cpu().numpy()
     corner_2d_pred = pvnet_pose_utils.project(corner_3d, K_cam, pose_pred)
 
+    img_fps = reproject_keypoints(input_img.copy(), K_cam, pose_pred, cfg)
+
     ###########################
     # overall result
     ###########################
     plt.figure(0)
     plt.subplot(221)
     plt.imshow(input_img)
-    plt.axis('off')
-    plt.title('Input Image')
-
-    plt.subplot(222)
-    plt.imshow(mask)
-    plt.axis('off')
-    plt.title('Predicted Mask')
-
-    plt.subplot(223)
-    plt.imshow(input_img)
     plt.scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
     plt.axis('off')
     plt.title('Key points detection')
+
+    plt.subplot(222)
+    # plt.imshow(input_img)
+    plt.imshow(img_fps)
+    plt.axis('off')
+    plt.title('Reprojected Keypoints')
+
+    plt.subplot(223)
+    plt.imshow(mask)
+    plt.axis('off')
+    plt.title('Predicted Mask')
 
     ax = plt.subplot(224)
     # ax.imshow(input_img)
@@ -207,7 +258,6 @@ def visualize_pose(input_img, cfg, pvnet_output, K_cam, pose_pred):
 
 def run_inference(pvnet, cfg, image, K_cam, is_vis=True):
     pvnet.eval()
-
     transform = make_transforms(cfg, is_train=False)
     processed_image, _, _ = transform(image)
     processed_image = np.array(processed_image).astype(np.float32)
@@ -364,6 +414,7 @@ class CobotPoseEstNode(object):
         else:
 
             vis_queue = []
+            fps_vis_queue = []
             for idx, (T_part_in_cam, input_data) in enumerate(zip(pvnet_outputs, pvnet_inputs)):
 
                 cls = input_data["class"]
@@ -392,7 +443,24 @@ class CobotPoseEstNode(object):
                 _, corrected_roi = draw_cad_model(T_stable_part_in_base, cls, self._im.copy(), self.T_base_in_camera)
 
                 vis_queue.append((input_roi, raw_roi, stable_roi, corrected_roi))
-                
+
+                cam_u = 2694.112343
+                cam_v = 1669.169773
+                W, H = int(5472), int(3648)
+                crop_size = 128
+                # shift the uv from original camera uv to cropped image center
+                shifted_u = cam_u + (W//2 - input_data['uv'][0]) - (W//2 - crop_size//2)
+                shifted_v = cam_v + (H//2 - input_data['uv'][1]) - (H//2 - crop_size//2)
+
+                K_cam = np.array([[10704.062350, 0, shifted_u],
+                            [0, 10727.438047, shifted_v],
+                            [0, 0, 1]])
+                cfg = cfgs[cls]
+                raw_fps = reproject_keypoints(input_roi.copy(), K_cam, T_part_in_cam, cfg)
+                stable_fps = reproject_keypoints(input_roi.copy(), K_cam, self.T_base_in_camera @ T_old_stable_part_pose, cfg)
+                corrected_fps = reproject_keypoints(input_roi.copy(), K_cam, self.T_base_in_camera @ T_stable_part_in_base, cfg)
+                fps_vis_queue.append((input_roi, raw_fps, stable_fps, corrected_fps))
+
                 # Publish transform
                 publish_tf2(R, t, 'world', tf_name)
                 self.tf_dict[tf_name] = (R, t)
@@ -402,7 +470,7 @@ class CobotPoseEstNode(object):
                 print(f"AFTER Correction T_stable_part_in_base[{idx}]\n{T_stable_part_in_base}\n{'='*50}")
 
             [visualize_reprojection(*vis) for vis in vis_queue]
-
+            [visualize_reprojection_keypoints(*vis) for vis in fps_vis_queue]
 
         
         self.flagged = True
