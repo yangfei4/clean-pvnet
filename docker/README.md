@@ -10,6 +10,8 @@ sudo bash docker/build_image
 # In two different terminals
 sudo bash docker/build_container.bash # Terminal 1
 sudo bash docker/build_docker_env # Terminal 2
+# Inside any running docker container
+source devel/setup.bash
 ```
 
 ## (If the docker container has already been built) Start docker container
