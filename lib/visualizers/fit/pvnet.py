@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 from lib.utils.pvnet import pvnet_pose_utils
 import cv2
 
+from cobot_pipeline import reproject_keypoints
 
 mean = pvnet_config.mean
 std = pvnet_config.std
@@ -170,28 +171,6 @@ class Visualizer:
         # vector_map.show()
         # plt.imshow(vector_map)
 
-
-        ###########################
-        # segmentaion map, note:
-        # mask = torch.argmax(output['seg'], 1)
-        ###########################
-        # plt.figure(1)
-        # plt.subplot(121)
-        # plt.imshow(segmentation[0])
-        # plt.axis('off')
-        # plt.title('Segmentaion 1')
-
-        # plt.subplot(122)
-        # plt.imshow(segmentation[1])
-        # plt.axis('off')
-        # plt.title('Segmentaion 2')
-
-        # # plot output_np_arr, which is a numpy array
-        # plt.figure(2)
-        # plt.imshow(output_np_arr)
-        # plt.axis('off')
-        # plt.title('Pose Prediction')
-
         plt.show()
         # plt.close(0)
         return pose_pred, output_np_arr
@@ -214,18 +193,22 @@ class Visualizer:
         anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
         fps_2d = np.array(anno['fps_2d'])
         # fps_2d = output['kpt_2d'][0].detach().cpu().numpy()
-        plt.figure(0)
-        plt.subplot(221)
-        plt.imshow(inp)
-        plt.subplot(222)
-        plt.imshow(mask)
-        plt.subplot(223)
-        plt.imshow(vertex)
-        plt.subplot(224)
-        plt.imshow(inp)
-        plt.scatter(fps_2d[:, 0], fps_2d[:, 1], color='red', s=10)
-        plt.savefig('test.jpg')
+
+        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+
+        ax[0, 0].imshow(inp)
+        ax[0, 0].title("input image")
+
+        ax[0, 1].imshow(mask)
+        ax[0, 1].title("input image")
         
+        ax[1, 0].imshow(vertex)
+
+        ax[1, 1].imshow(inp)
+        ax[1, 1].scatter(fps_2d[:, 0], fps_2d[:, 1], color='red', s=10)
+
+        plt.savefig('test.jpg')
+        return fig
 
         # # Assuming 'output' is your PyTorch tensor
         # output = output['vertex'][0].detach().cpu().numpy()  # Convert PyTorch tensor to NumPy array
@@ -253,7 +236,7 @@ class Visualizer:
         # ax.legend()
         
 
-        plt.close(0)
+        # plt.close(0)
 
     def visualize_gt(self, batch):
         inp = img_utils.unnormalize_img(batch['inp'][0], mean, std).permute(1, 2, 0)
@@ -280,6 +263,56 @@ class Visualizer:
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='g'))
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
         plt.show()
+    
+    def get_image_and_tensor_for_batch(self, batch):
+        img = img_utils.unnormalize_img(batch['inp'][0], mean, std).permute(1, 2, 0) # (128,128,3)
+
+        # plt.imshow(img)
+        # plt.show()
+
+        return img.numpy()
+
+    def make_figure_for_training(self, input_img, pvnet_output, img_id):
+        anno = self.coco.loadAnns(self.coco.getAnnIds(imgIds=img_id))[0]
+        kpt_3d = np.concatenate([anno['fps_3d'], [anno['center_3d']]], axis=0)
+        K = np.array(anno['K'])
+        kpt_2d = pvnet_output['kpt_2d'][0].detach().cpu().numpy()
+        corner_3d = np.array(anno['corner_3d'])
+
+        pose_gt = np.array(anno['pose'])
+        pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
+
+        segmentation = pvnet_output['seg'][0].detach().cpu().numpy()
+        mask = pvnet_output['mask'][0].detach().cpu().numpy()
+        corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
+
+        img_fps = reproject_keypoints(input_img.copy(), K, pose_pred, self.cfg)
+
+        ###########################
+        # overall result
+        ###########################
+        fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+
+        axs[0, 0].imshow(input_img)
+        axs[0, 0].scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
+        axs[0, 0].axis('off')
+        axs[0, 0].set_title('Key points detection')
+
+        axs[0, 1].imshow(img_fps)
+        axs[0, 1].axis('off')
+        axs[0, 1].set_title('Reprojected Keypoints')
+
+        axs[1, 0].imshow(mask)
+        axs[1, 0].axis('off')
+        axs[1, 0].set_title('Predicted Mask')
+
+        axs[1, 1].imshow(draw_axis(input_img.copy(), pose_pred[:3, :3], pose_pred[:3, 3], K))
+        axs[1, 1].add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
+        axs[1, 1].add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+        axs[1, 1].axis('off')
+        axs[1, 1].set_title('Pose Prediction')
+
+        return fig
 
 
 def draw_axis(img, R, t, K, scale=0.006, dist=None):
@@ -297,7 +330,6 @@ def draw_axis(img, R, t, K, scale=0.006, dist=None):
     dist = np.zeros(4, dtype=float) if dist is None else dist
     points = scale * np.float32([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]).reshape(-1, 3)
     axis_points, _ = cv2.projectPoints(points, rotation_vec, t, K, dist)
-    
     axis_points = axis_points.astype(int)
     corner = tuple(axis_points[3].ravel())
     img = cv2.line(img, corner, tuple(axis_points[0].ravel()), (255, 0, 0), 1)
@@ -308,5 +340,4 @@ def draw_axis(img, R, t, K, scale=0.006, dist=None):
 
     img = cv2.line(img, corner, tuple(axis_points[2].ravel()), (0, 0, 255), 1)
 
-    img = img.astype(np.uint8)
     return img
