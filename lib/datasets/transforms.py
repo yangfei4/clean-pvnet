@@ -8,6 +8,8 @@ from torchvision.transforms import functional as F
 from PIL import Image
 # from lib.datasets.transforms import make_transforms
 
+from lib.utils.pvnet import pvnet_config
+
 class Compose(object):
 
     def __init__(self, transforms):
@@ -133,14 +135,14 @@ def make_transforms(cfg, is_train):
                 ColorJitter(0.2, 0.01, 0.1, 0.1),
                 SparkleNoise(probability=0.05, intensity_range=(100, 150)),
                 ToTensor(),
-                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                Normalize(mean=pvnet_config.mean.reshape(3), std=pvnet_config.std.reshape(3)),
             ]
         )
     else:
         transform = Compose(
             [
                 ToTensor(),
-                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                Normalize(mean=pvnet_config.mean.reshape(3), std=pvnet_config.std.reshape(3)),
             ]
         )
     return transform
