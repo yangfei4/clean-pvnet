@@ -3,7 +3,22 @@ import datetime
 import torch
 import tqdm
 from torch.nn import DataParallel
+import wandb
+wandb.init(project="pvnet", name="overfit-to-one-batch")
 
+import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
+import numpy as np
+
+from lib.config import cfg, args
+from lib.utils.pvnet import pvnet_pose_utils
+from lib.utils import img_utils
+from lib.utils.pvnet import pvnet_config
+from lib.datasets.transforms import make_transforms
+from lib.visualizers import make_visualizer
+
+mean = pvnet_config.mean
+std = pvnet_config.std
 
 class Trainer(object):
     def __init__(self, network):
@@ -79,7 +94,10 @@ class Trainer(object):
         val_loss_stats = {}
         data_size = len(data_loader)
         batch_num = 0
+        batch_exmaple = None
         for batch in tqdm.tqdm(data_loader):
+            if batch_exmaple is None:
+                batch_exmaple = batch
             batch_num += 1
             for k in batch:
                 if k != 'meta':
@@ -104,7 +122,22 @@ class Trainer(object):
         if evaluator is not None:
             result = evaluator.summarize()
             val_loss_stats.update(result)
-
+        
         if recorder:
-            recorder.record('val', epoch, val_loss_stats, image_stats)
+            visualizer = make_visualizer(cfg)
+            img = visualizer.get_image_and_tensor_for_batch(batch_exmaple)
 
+            with torch.no_grad():
+                one_output = self.network(batch_exmaple)[0]
+
+            img_id = int(batch_exmaple['img_id'][0])
+            fig = visualizer.make_figure_for_training(img, one_output, img_id)
+
+            wandb.log({"epoch": epoch, 
+                       "total_loss": val_loss_stats['loss'], 
+                       "seg_loss": val_loss_stats['seg_loss'], 
+                       "vote_loss": val_loss_stats['vote_loss'], 
+                       "eval_result": result,
+                       "visual": wandb.Image(fig)})
+            recorder.record('val', epoch, val_loss_stats, image_stats)
+    
