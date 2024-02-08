@@ -7,6 +7,23 @@ from lib.evaluators import make_evaluator
 import torch.multiprocessing
 import time
 
+import torch
+import numpy as np
+import random
+
+import wandb
+wandb.init(project="pvnet", name="32-no-aug", 
+           config={"learning_rate": cfg.train.lr, "epochs": cfg.train.epoch, "batch_size": cfg.train.batch_size})
+
+def set_seed(seed=42):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed) # if using mutiple gpu
+
+    np.random.seed(seed)
+
+    random.seed(seed)
+
 def train(cfg, network):
     time_start = time.time()
 
@@ -17,22 +34,30 @@ def train(cfg, network):
     scheduler = make_lr_scheduler(cfg, optimizer)
     recorder = make_recorder(cfg)
     evaluator = make_evaluator(cfg)
-
     begin_epoch = load_model(network, optimizer, scheduler, recorder, cfg.model_dir, resume=cfg.resume)
     # set_lr_scheduler(cfg, scheduler)
 
     train_loader = make_data_loader(cfg, is_train=True, max_iter=cfg.ep_iter)
     val_loader = make_data_loader(cfg, is_train=False)
     # train_loader = make_data_loader(cfg, is_train=True, max_iter=100)
+    
+    wandb.watch(
+            network,
+            log="all",
+            log_freq=1
+    )
 
-    for epoch in range(begin_epoch, cfg.train.epoch):
+    for epoch in range(begin_epoch, cfg.train.epoch):        
         recorder.epoch = epoch
 
         if epoch % cfg.save_ep == 0:
             save_model(network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
 
-        if epoch<=25 or epoch%cfg.eval_ep == 0:
-            trainer.val(epoch, val_loader, evaluator, recorder)
+        # if epoch<=25 or epoch%cfg.eval_ep == 0:
+            # trainer.val(epoch, val_loader, evaluator, recorder)
+        
+        # evaluate model every epoch
+        trainer.val(epoch, val_loader, evaluator, recorder, scheduler, optimizer)
         
         trainer.train(epoch, train_loader, optimizer, recorder)
         scheduler.step()
@@ -60,4 +85,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # set_seed() # to be removed
     main()

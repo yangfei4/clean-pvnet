@@ -3,8 +3,6 @@ import datetime
 import torch
 import tqdm
 from torch.nn import DataParallel
-import wandb
-wandb.init(project="pvnet", name="overfit-to-one-batch")
 
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
@@ -19,6 +17,8 @@ from lib.visualizers import make_visualizer
 
 mean = pvnet_config.mean
 std = pvnet_config.std
+
+import wandb
 
 class Trainer(object):
     def __init__(self, network):
@@ -41,6 +41,7 @@ class Trainer(object):
         return batch
 
     def train(self, epoch, data_loader, optimizer, recorder):
+
         max_iter = len(data_loader)
         self.network.train()
         end = time.time()
@@ -88,7 +89,7 @@ class Trainer(object):
         recorder.record('train')
         recorder.step += 1
 
-    def val(self, epoch, data_loader, evaluator=None, recorder=None):
+    def val(self, epoch, data_loader, evaluator=None, recorder=None, scheduler=None, optimizer=None):
         self.network.eval()
         torch.cuda.empty_cache()
         val_loss_stats = {}
@@ -96,7 +97,7 @@ class Trainer(object):
         batch_num = 0
         batch_exmaple = None
         for batch in tqdm.tqdm(data_loader):
-            if batch_exmaple is None:
+            if batch_num==2: # choose the third image as example(no specifc reason)
                 batch_exmaple = batch
             batch_num += 1
             for k in batch:
@@ -123,7 +124,7 @@ class Trainer(object):
             result = evaluator.summarize()
             val_loss_stats.update(result)
         
-        if recorder:
+        if recorder and scheduler and optimizer:
             visualizer = make_visualizer(cfg)
             img = visualizer.get_image_and_tensor_for_batch(batch_exmaple)
 
@@ -132,12 +133,13 @@ class Trainer(object):
 
             img_id = int(batch_exmaple['img_id'][0])
             fig = visualizer.make_figure_for_training(img, one_output, img_id)
-
             wandb.log({"epoch": epoch, 
                        "total_loss": val_loss_stats['loss'], 
                        "seg_loss": val_loss_stats['seg_loss'], 
                        "vote_loss": val_loss_stats['vote_loss'], 
                        "eval_result": result,
-                       "visual": wandb.Image(fig)})
+                       "visual": wandb.Image(fig),
+                       "lr_scheduler": scheduler.get_last_lr()[0],
+                       "lr_optimizer": optimizer.param_groups[0]['lr']})
             recorder.record('val', epoch, val_loss_stats, image_stats)
     
