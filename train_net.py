@@ -58,6 +58,9 @@ def train(cfg, network):
         
         # evaluate model every epoch
         trainer.val(epoch, val_loader, evaluator, recorder, scheduler, optimizer)
+
+        if epoch % cfg.save_ep == 0:
+            save_model(network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
         
         trainer.train(epoch, train_loader, optimizer, recorder)
         scheduler.step()
