@@ -4,6 +4,7 @@ import time
 import datetime
 import torch
 import tqdm
+import shutil
 from torch.nn import DataParallel
 from pathlib import Path
 
@@ -29,6 +30,7 @@ class Trainer(object):
         network = network.cuda()
         network = DataParallel(network)
         self.network = network
+        self.batch_to_vis = None
 
     def set_fixed_batch(self, fixed_batch, num_samples=cfg.train.batch_size):
         self.fixed_batch = fixed_batch
@@ -59,6 +61,12 @@ class Trainer(object):
             # recorder.step += 1
 
             # batch = self.to_cuda(batch)
+            if cfg.train.vis_train_input and isinstance(self.batch_to_vis, type(None)):
+                from torchvision.utils import make_grid
+                input_grid =  make_grid(batch['inp']).cpu().permute(1, 2, 0).numpy()
+                self.batch_to_vis = input_grid
+                wandb.log({'Batch_Input':  wandb.Image(input_grid),
+                           "epoch": epoch})
             output, loss, loss_stats, image_stats = self.network(batch)
 
             # training stage: loss; optimizer; scheduler
@@ -145,7 +153,10 @@ class Trainer(object):
 
                 wandb_path = f"{img_id:0>4}"
                 img_path = f'./output/{wandb_path.replace("/","_")}.png'
-                Path(img_path).parent.mkdir(parents=True, exist_ok=True)
+                # Use shutil.rmtree to remove the directory and all its contents
+                shutil.rmtree(str(Path(img_path).parent))
+
+                Path(img_path).parent.mkdir(exist_ok=True)
                 fig.savefig(img_path)
                 plt.close(fig)
                 fixed_batch_visuals.update({wandb_path: wandb.Image(img_path)})
