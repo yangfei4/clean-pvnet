@@ -1,8 +1,11 @@
+import io
+import cv2
 import time
 import datetime
 import torch
 import tqdm
 from torch.nn import DataParallel
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
@@ -15,6 +18,7 @@ from lib.utils.pvnet import pvnet_config
 from lib.datasets.transforms import make_transforms
 from lib.visualizers import make_visualizer
 
+
 mean = pvnet_config.mean
 std = pvnet_config.std
 
@@ -25,6 +29,9 @@ class Trainer(object):
         network = network.cuda()
         network = DataParallel(network)
         self.network = network
+
+    def set_fixed_batch(self, fixed_batch, num_samples=cfg.train.batch_size):
+        self.fixed_batch = fixed_batch
 
     def reduce_loss_stats(self, loss_stats):
         reduced_losses = {k: torch.mean(v) for k, v in loss_stats.items()}
@@ -93,9 +100,9 @@ class Trainer(object):
         self.network.eval()
         torch.cuda.empty_cache()
         val_loss_stats = {}
-        data_size = len(data_loader)
         batch_num = 0
         batch_exmaple = None
+
         for batch in tqdm.tqdm(data_loader):
             if batch_num==2: # choose the third image as example(no specifc reason)
                 batch_exmaple = batch
@@ -116,7 +123,8 @@ class Trainer(object):
 
         loss_state = []
         for k in val_loss_stats.keys():
-            val_loss_stats[k] /= data_size*batch_num
+            # Loss should be divid by all validation images which is = number of batches * batch size
+            val_loss_stats[k] /= len(data_loader) * cfg.test.batch_size
             loss_state.append('{}: {:.4f}'.format(k, val_loss_stats[k]))
         print(loss_state)
 
@@ -126,20 +134,31 @@ class Trainer(object):
         
         if recorder and scheduler and optimizer:
             visualizer = make_visualizer(cfg)
-            img = visualizer.get_image_and_tensor_for_batch(batch_exmaple)
 
-            with torch.no_grad():
-                one_output = self.network(batch_exmaple)[0]
+            fixed_batch_visuals = {}
+            for sample in self.fixed_batch:
+                img = visualizer.get_image_and_tensor_for_batch(sample)
+                with torch.no_grad():
+                    one_output = self.network(sample)[0]
+                img_id = int(sample['img_id'][0])
+                fig = visualizer.make_figure_for_training(img, one_output, img_id)
 
-            img_id = int(batch_exmaple['img_id'][0])
-            fig = visualizer.make_figure_for_training(img, one_output, img_id)
-            wandb.log({"epoch": epoch, 
-                       "total_loss": val_loss_stats['loss'], 
-                       "seg_loss": val_loss_stats['seg_loss'], 
-                       "vote_loss": val_loss_stats['vote_loss'], 
+                wandb_path = f"{img_id:0>4}"
+                img_path = f'./output/{wandb_path.replace("/","_")}.png'
+                Path(img_path).parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(img_path)
+                plt.close(fig)
+                fixed_batch_visuals.update({wandb_path: wandb.Image(img_path)})
+
+            stats = {"epoch": epoch, 
+                       "/Losses/total_loss": val_loss_stats['loss'], 
+                       "/Losses/seg_loss": val_loss_stats['seg_loss'], 
+                       "/Losses/vote_loss": val_loss_stats['vote_loss'], 
                        "eval_result": result,
-                       "visual": wandb.Image(fig),
                        "lr_scheduler": scheduler.get_last_lr()[0],
-                       "lr_optimizer": optimizer.param_groups[0]['lr']})
+                       "lr_optimizer": optimizer.param_groups[0]['lr']}
+
+            fixed_batch_visuals.update(**stats)
+            wandb.log(fixed_batch_visuals)
             recorder.record('val', epoch, val_loss_stats, image_stats)
     

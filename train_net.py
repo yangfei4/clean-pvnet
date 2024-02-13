@@ -51,7 +51,8 @@ def train(cfg, network):
 
     train_loader = make_data_loader(cfg, is_train=True, max_iter=cfg.ep_iter)
     val_loader = make_data_loader(cfg, is_train=False)
-    # train_loader = make_data_loader(cfg, is_train=True, max_iter=100)
+
+    trainer.set_fixed_batch(make_data_loader(cfg, is_train=False))
     
     wandb.watch(
             network,
