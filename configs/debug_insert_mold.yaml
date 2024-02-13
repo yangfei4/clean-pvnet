@@ -44,6 +44,7 @@ train:
     optim: 'adam'
     lr: 3e-4 #  https://karpathy.github.io/2019/04/25/recipe/
     vis_train_input: True
+    noTrans: True
     nosched: True
     deterministic: True
     epoch: 200
