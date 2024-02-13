@@ -97,5 +97,5 @@ def main():
 
 if __name__ == "__main__":
     if cfg.train.deterministic:
-        set_seed() # to be removed
+        set_seed()
     main()

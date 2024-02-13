@@ -124,20 +124,29 @@ class RandomBlur(object):
 
 def make_transforms(cfg, is_train):
     if is_train is True:
-        transform = Compose(
-            [
-                # ColorJitter(0.2, 0.01, 0.1, 0.1),
-                # SparkleNoise(probability=0.3, intensity_range=(50, 150)),
-                # RandomBlur(0.9),
-                # ToTensor(),
-                # Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                RandomBlur(0.5),
-                ColorJitter(0.2, 0.01, 0.1, 0.1),
-                SparkleNoise(probability=0.05, intensity_range=(100, 150)),
-                ToTensor(),
-                Normalize(mean=pvnet_config.mean.reshape(3), std=pvnet_config.std.reshape(3)),
-            ]
-        )
+
+        if cfg.train.noTrans:
+            transform = Compose(
+                    [
+                        ToTensor(),
+                        Normalize(mean=pvnet_config.mean.reshape(3), std=pvnet_config.std.reshape(3)),
+                    ]
+                )
+        else:
+            transform = Compose(
+                [
+                    # ColorJitter(0.2, 0.01, 0.1, 0.1),
+                    # SparkleNoise(probability=0.3, intensity_range=(50, 150)),
+                    # RandomBlur(0.9),
+                    # ToTensor(),
+                    # Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    RandomBlur(0.5),
+                    ColorJitter(0.2, 0.01, 0.1, 0.1),
+                    SparkleNoise(probability=0.05, intensity_range=(100, 150)),
+                    ToTensor(),
+                    Normalize(mean=pvnet_config.mean.reshape(3), std=pvnet_config.std.reshape(3)),
+                ]
+            )
     else:
         transform = Compose(
             [

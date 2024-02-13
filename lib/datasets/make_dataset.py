@@ -30,7 +30,7 @@ def make_dataset(cfg, dataset_name, transforms, is_train=True):
     if data_source in ['linemod', 'custom', 'fit']:
         args['transforms'] = transforms
         args['split'] = 'train' if is_train == True else 'test'
-    # args['is_train'] = is_train
+    args['is_train'] = is_train
     dataset = dataset(**args)
     return dataset
 
