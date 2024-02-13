@@ -124,7 +124,6 @@ class RandomBlur(object):
 
 def make_transforms(cfg, is_train):
     if is_train is True:
-
         if cfg.train.noTrans:
             transform = Compose(
                     [
