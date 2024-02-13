@@ -284,34 +284,51 @@ class Visualizer:
 
         segmentation = pvnet_output['seg'][0].detach().cpu().numpy()
         mask = pvnet_output['mask'][0].detach().cpu().numpy()
+        mask_gt = cv2.imread(anno["mask_path"])[:, :, 0]
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K, pose_pred)
+        corner_2d_gt = pvnet_pose_utils.project(corner_3d, K, pose_gt)
 
-        img_fps = reproject_keypoints(input_img.copy(), K, pose_pred, self.cfg)
+        pred_reproject = reproject_keypoints(input_img.copy(), K, pose_pred, self.cfg)
+        gt_reproject = reproject_keypoints(input_img.copy(), K, pose_gt, self.cfg)
 
         ###########################
         # overall result
         ###########################
-        fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+        # fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+        fig, axs = plt.subplots(2, 3, figsize=(12, 12))
 
-        axs[0, 0].imshow(input_img)
-        axs[0, 0].scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
+        # axs[0, 0].imshow(input_img)
+        # axs[0, 0].scatter(kpt_2d[:8, 0], kpt_2d[:8, 1], color='red', s=10)
+        axs[0, 0].imshow(mask)
         axs[0, 0].axis('off')
-        axs[0, 0].set_title('Key points detection')
+        axs[0, 0].set_title('Predicted Mask')
 
-        axs[0, 1].imshow(img_fps)
+        axs[0, 1].imshow(pred_reproject)
         axs[0, 1].axis('off')
-        axs[0, 1].set_title('Reprojected Keypoints')
+        axs[0, 1].set_title('Predicted Keypoints')
 
-        axs[1, 0].imshow(mask)
+        axs[0, 2].imshow(draw_axis(input_img.copy(), pose_pred[:3, :3], pose_pred[:3, 3], K))
+        axs[0, 2].add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
+        axs[0, 2].add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+
+        axs[0, 2].axis('off')
+        axs[0, 2].set_title('Pose Prediction')
+
+        axs[1, 0].imshow(mask_gt)
         axs[1, 0].axis('off')
-        axs[1, 0].set_title('Predicted Mask')
+        axs[1, 0].set_title('Ground Truth Mask')
 
-        axs[1, 1].imshow(draw_axis(input_img.copy(), pose_pred[:3, :3], pose_pred[:3, 3], K))
-        axs[1, 1].add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
-        axs[1, 1].add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+        axs[1, 1].imshow(gt_reproject)
         axs[1, 1].axis('off')
-        axs[1, 1].set_title('Pose Prediction')
+        axs[1, 1].set_title('Ground Truth Keypoints')
 
+
+        axs[1, 2].imshow(draw_axis(input_img.copy(), pose_gt[:3, :3], pose_gt[:3, 3], K))
+        axs[1, 2].add_patch(patches.Polygon(xy=corner_2d_gt[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='g'))
+        axs[1, 2].add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
+        axs[1, 2].axis('off')
+        axs[1, 2].set_title('Ground Truth Pose')
+        fig.tight_layout()
         return fig
 
 
