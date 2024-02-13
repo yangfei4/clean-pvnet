@@ -154,12 +154,14 @@ class Trainer(object):
                 wandb_path = f"{img_id:0>4}"
                 img_path = f'./output/{wandb_path.replace("/","_")}.png'
                 # Use shutil.rmtree to remove the directory and all its contents
-                shutil.rmtree(str(Path(img_path).parent))
+                path = Path(img_path)
+                if path.exists():
+                    shutil.rmtree(str(path.parent))
 
-                Path(img_path).parent.mkdir(exist_ok=True)
-                fig.savefig(img_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(str(img_path))
                 plt.close(fig)
-                fixed_batch_visuals.update({wandb_path: wandb.Image(img_path)})
+                fixed_batch_visuals.update({wandb_path: wandb.Image(str(img_path))})
 
             stats = {"epoch": epoch, 
                        "/Losses/total_loss": val_loss_stats['loss'], 
