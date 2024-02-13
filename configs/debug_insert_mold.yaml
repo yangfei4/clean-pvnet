@@ -56,8 +56,8 @@ train:
     rotate_rate: 0
     rotate_min: 0
     rotate_max: 0
-    resize_ratio_min: 0
-    resize_ratio_max: 0
+    resize_ratio_min: 0.0
+    resize_ratio_max: 0.0
     weight_decay: 0.
     batch_sampler: 'image_size'
 test:
