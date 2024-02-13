@@ -12,7 +12,7 @@ import numpy as np
 import random
 
 import wandb
-wandb.init(project="pvnet", name="32-no-aug", 
+wandb.init(project="cobot_illfit/pvnet_cobot", name="32-no-aug", 
            config={"learning_rate": cfg.train.lr, "epochs": cfg.train.epoch, "batch_size": cfg.train.batch_size})
 
 class NoneScheduler(object):
