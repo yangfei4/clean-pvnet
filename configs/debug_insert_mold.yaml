@@ -52,13 +52,13 @@ train:
     gamma: 0.5
     batch_size: 32
     dataset: 'FitTrain'
-    affine_rate: 0.0
-    cropresize_rate: 0.0
-    rotate_rate: 0.0
-    rotate_min: 0
-    rotate_max: 0
-    resize_ratio_min: 0.0
-    resize_ratio_max: 0.0
+    affine_rate: 0.
+    cropresize_rate: 0.
+    rotate_rate: 0.
+    rotate_min: -1
+    rotate_max: 1
+    resize_ratio_min: 0.99
+    resize_ratio_max: 1.
     weight_decay: 0.
     batch_sampler: 'image_size'
 test:
