@@ -54,7 +54,8 @@ cfg.train.optim = 'adam'
 cfg.train.lr = 1e-4
 cfg.train.weight_decay = 5e-4
 
-cfg.train.noTrans = True
+cfg.train.vis_train_input = False
+cfg.train.noTrans = False
 cfg.train.deterministic = False
 cfg.train.nosched = False
 cfg.train.warmup = False

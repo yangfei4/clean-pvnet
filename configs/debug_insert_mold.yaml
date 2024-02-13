@@ -43,6 +43,7 @@ train:
     exp_name: "insertmold_32-overfit"
     optim: 'adam'
     lr: 3e-4 #  https://karpathy.github.io/2019/04/25/recipe/
+    vis_train_input: True
     nosched: True
     deterministic: True
     epoch: 200
