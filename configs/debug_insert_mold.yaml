@@ -40,7 +40,7 @@ fps_2d: [[33.23061607377602, 80.87158244166002],
 
 
 train:
-    exp_name: "insertmold_32-overfit"
+    exp_name: "insertmold_5-uniform-overfit"
     optim: 'adam'
     lr: 3e-4 #  https://karpathy.github.io/2019/04/25/recipe/
     vis_train_input: True
