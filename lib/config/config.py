@@ -43,6 +43,7 @@ cfg.demo_path = 'demo_images/cat'
 # train
 # -----------------------------------------------------------------------------
 cfg.train = CN()
+cfg.train.exp_name = "fit"
 
 cfg.train.dataset = 'CocoTrain'
 cfg.train.epoch = 140
