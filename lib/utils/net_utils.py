@@ -280,7 +280,8 @@ def load_model(net, optim, scheduler, recorder, model_dir, resume=True, epoch=-1
     pretrained_model = torch.load(os.path.join(model_dir, '{}.pth'.format(pth)))
     net.load_state_dict(pretrained_model['net'])
     optim.load_state_dict(pretrained_model['optim'])
-    scheduler.load_state_dict(pretrained_model['scheduler'])
+    if not isinstance(scheduler,(type(None), object)):
+        scheduler.load_state_dict(pretrained_model['scheduler'])
     recorder.load_state_dict(pretrained_model['recorder'])
     return pretrained_model['epoch'] + 1
 
@@ -290,7 +291,7 @@ def save_model(net, optim, scheduler, recorder, epoch, model_dir):
     torch.save({
         'net': net.state_dict(),
         'optim': optim.state_dict(),
-        'scheduler': scheduler.state_dict(),
+        'scheduler': scheduler.state_dict() if not isinstance(scheduler, (type(None), object)) else None,
         'recorder': recorder.state_dict(),
         'epoch': epoch
     }, os.path.join(model_dir, '{}.pth'.format(epoch)))

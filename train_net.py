@@ -15,13 +15,22 @@ import wandb
 wandb.init(project="pvnet", name="32-no-aug", 
            config={"learning_rate": cfg.train.lr, "epochs": cfg.train.epoch, "batch_size": cfg.train.batch_size})
 
+class NoneScheduler(object):
+    def __init__(self, optim):
+        self.optim = optim
+
+    def step(self):
+        pass
+
+    def get_last_lr(self):
+        return [self.optim.param_groups[0]['lr']]
+
+
 def set_seed(seed=42):
+    torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed) # if using mutiple gpu
-
+    torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
-
     random.seed(seed)
 
 def train(cfg, network):
@@ -31,7 +40,10 @@ def train(cfg, network):
         torch.multiprocessing.set_sharing_strategy('file_system')
     trainer = make_trainer(cfg, network)
     optimizer = make_optimizer(cfg, network)
-    scheduler = make_lr_scheduler(cfg, optimizer)
+    if cfg.train.nosched:
+        scheduler = NoneScheduler(optimizer)
+    else:
+        scheduler = make_lr_scheduler(cfg, optimizer)
     recorder = make_recorder(cfg)
     evaluator = make_evaluator(cfg)
     begin_epoch = load_model(network, optimizer, scheduler, recorder, cfg.model_dir, resume=cfg.resume)
@@ -88,5 +100,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # set_seed() # to be removed
+    if cfg.train.deterministic:
+        set_seed() # to be removed
     main()

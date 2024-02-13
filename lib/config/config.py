@@ -53,6 +53,8 @@ cfg.train.optim = 'adam'
 cfg.train.lr = 1e-4
 cfg.train.weight_decay = 5e-4
 
+cfg.train.deterministic = False
+cfg.train.nosched = False
 cfg.train.warmup = False
 cfg.train.milestones = [80, 120]
 cfg.train.gamma = 0.5
