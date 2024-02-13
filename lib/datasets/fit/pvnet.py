@@ -42,7 +42,10 @@ class Dataset(data.Dataset):
 
         img, kpt_2d, mask = self.read_data(img_id)
         if self.split == 'train':
-            inp, kpt_2d, mask = self.augment(img, mask, kpt_2d, height, width)
+            if not cfg.train.noPad:
+                inp, kpt_2d, mask = self.augment(img, mask, kpt_2d, height, width)
+            else:
+                inp = img
         else:
             inp = img
 
