@@ -32,6 +32,7 @@ class Evaluator:
         self.T_gt = []
         self.T_pre = []
 
+        self.center2d_err = []
         self.proj2d = []
         self.add = []
         self.icp_add = []
@@ -42,6 +43,10 @@ class Evaluator:
         self.angular_quaternion_err = [] # degree
         self.trans_err = [] # meter
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
+
+    def calculate_center2d_error(self, kpt_pred, kpt_gt):
+        error = np.sum(np.linalg.norm(kpt_pred - kpt_gt))
+        self.center2d_err.append(error)
 
     def average_error(self, pose_pre, pose_gt):
         self.T_gt.append(pose_gt)
@@ -157,6 +162,10 @@ class Evaluator:
         self.average_error(pose_pred, pose_gt)
         self.quaternion_angular_err(pose_pred, pose_gt)
 
+        kpt_pred = output['kpt_2d'].squeeze()[img_id].cpu().numpy()
+        kpt_gt = np.array(anno["center_2d"])
+        self.calculate_center2d_error(kpt_pred, kpt_gt) 
+
     def summarize(self):
         proj2d = np.mean(self.proj2d)
         add = np.mean(self.add)
@@ -172,6 +181,10 @@ class Evaluator:
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
 
+        kpt_projection_err = np.mean(self.center2d_err)
+        kpt_projection_std = np.std(self.center2d_err)
+
+        print('Keypoint Projection Error  : {:.2f} pix, std {:.2f}'.format(kpt_projection_err, kpt_projection_std))
         print('2d projections metric: {:.3f}'.format(proj2d))
         print('ADD metric: {:.3f}'.format(add))
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
@@ -183,7 +196,6 @@ class Evaluator:
 
         print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_rotation, angular_rotation_std))
         print('Angular Error (quaternion): {:.2f} deg, std {:.2f}'.format(angular_quat, angular_quat_std))
-
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
         # print('Euler Angle Error (Y-axis): {:.1f} deg'.format(euler_err[1]))
@@ -202,4 +214,5 @@ class Evaluator:
         self.cmd5 = []
         self.mask_ap = []
         self.icp_add = []
-        return {'proj2d': proj2d, 'add': add, 'cmd5': cmd5, 'ap': ap, 'x_err_mm': trans_err[0], 'y_err_mm': trans_err[1], 'z_err_mm': trans_err[2], 'angular_err': angular_rotation}
+        self.center2d_err = []
+        return {'proj2d': proj2d, 'add': add, 'cmd5': cmd5, 'ap': ap, 'x_err_mm': trans_err[0], 'y_err_mm': trans_err[1], 'z_err_mm': trans_err[2], 'angular_err': angular_rotation, 'kpt_error': kpt_projection_err}

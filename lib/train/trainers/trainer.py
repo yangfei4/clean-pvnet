@@ -65,7 +65,7 @@ class Trainer(object):
                 from torchvision.utils import make_grid
                 input_grid =  make_grid(batch['inp']).cpu().permute(1, 2, 0).numpy()
                 self.batch_to_vis = input_grid
-                wandb.log({'Batch_Input':  wandb.Image(input_grid),
+                wandb.log({'Batch_Input/':  wandb.Image(input_grid),
                            "epoch": epoch})
             output, loss, loss_stats, image_stats = self.network(batch)
 
@@ -167,9 +167,9 @@ class Trainer(object):
                        "/Losses/total_loss": val_loss_stats['loss'], 
                        "/Losses/seg_loss": val_loss_stats['seg_loss'], 
                        "/Losses/vote_loss": val_loss_stats['vote_loss'], 
-                       "eval_result": result,
-                       "lr_scheduler": scheduler.get_last_lr()[0],
-                       "lr_optimizer": optimizer.param_groups[0]['lr']}
+                       "/Eval/eval_result": result,
+                       "/Lr/lr_scheduler": scheduler.get_last_lr()[0],
+                       "/Lr/lr_optimizer": optimizer.param_groups[0]['lr']}
 
             fixed_batch_visuals.update(**stats)
             wandb.log(fixed_batch_visuals)
