@@ -4,6 +4,7 @@ from lib.train import make_trainer, make_optimizer, make_lr_scheduler, make_reco
 from lib.datasets import make_data_loader
 from lib.utils.net_utils import load_model, save_model, load_network
 from lib.evaluators import make_evaluator
+from tqdm import tqdm, trange
 import torch.multiprocessing
 import time
 
@@ -40,31 +41,29 @@ def train(cfg, network):
         torch.multiprocessing.set_sharing_strategy('file_system')
     trainer = make_trainer(cfg, network)
     optimizer = make_optimizer(cfg, network)
-    if cfg.train.nosched:
-        scheduler = NoneScheduler(optimizer)
-    else:
-        scheduler = make_lr_scheduler(cfg, optimizer)
+    scheduler = make_lr_scheduler(cfg, optimizer)
     recorder = make_recorder(cfg)
     evaluator = make_evaluator(cfg)
+
     begin_epoch = load_model(network, optimizer, scheduler, recorder, cfg.model_dir, resume=cfg.resume)
-    # set_lr_scheduler(cfg, scheduler)
+    if cfg.train.warmup and not cfg.train.cosine:
+        set_lr_scheduler(cfg, scheduler)
 
     train_loader = make_data_loader(cfg, is_train=True, max_iter=cfg.ep_iter)
     val_loader = make_data_loader(cfg, is_train=False)
 
     trainer.set_fixed_batch(make_data_loader(cfg, is_train=False))
     
-    wandb.watch(
-            network,
-            log="all",
-            log_freq=1
-    )
+    wandb.watch(network, log="all",log_freq=1)
 
-    for epoch in range(begin_epoch, cfg.train.epoch):        
+    for epoch in trange(begin_epoch, cfg.train.epoch):        
         recorder.epoch = epoch
 
-        trainer.train(epoch, train_loader, optimizer, recorder)
-        scheduler.step()
+        trainer.train(epoch, train_loader, optimizer, recorder, scheduler)
+
+        # Multistep and warmup step schedulers need to be updated every epoch not batch iteration
+        if cfg.train.warmup and not cfg.train.cosine:
+            scheduler.step()
 
         # Evaluate and save model periodically
         # TODO: Add proper cross validation. 
