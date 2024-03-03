@@ -83,7 +83,7 @@ class Trainer(object):
                 batch[k] = batch[k].cuda()
         return batch
 
-    def train(self, epoch, data_loader, optimizer, recorder):
+    def train(self, epoch, data_loader, optimizer, recorder, scheduler):
 
         max_iter = len(data_loader)
         self.network.train()
@@ -109,6 +109,10 @@ class Trainer(object):
             loss.backward()
             torch.nn.utils.clip_grad_value_(self.network.parameters(), 40)
             optimizer.step()
+
+            # If using cosine annealing scheduler then steps need to happen every batch iteration
+            if cfg.train.cosine:
+                scheduler.step(epoch + (iteration - 1)  / max_iter)
 
             # data recording stage: loss_stats, time, image_stats
             loss_stats = self.reduce_loss_stats(loss_stats)
