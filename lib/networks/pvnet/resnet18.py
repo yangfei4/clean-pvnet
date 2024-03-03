@@ -73,9 +73,37 @@ class Resnet18(nn.Module):
         )
         self.up2storaw = nn.UpsamplingBilinear2d(scale_factor=2)
 
-    def _normal_initialization(self, layer):
-        layer.weight.data.normal_(0, 0.01)
-        layer.bias.data.zero_()
+        # Use Kiameng initialization of weights and bias of various layers that were not pretrained
+        layer_queqe = (self.resnet18_8s.fc,  self.conv8s, self.up8sto4s,
+                       self.conv4s, self.conv2s, self.up4sto2s, self.convraw, self.up2storaw)
+
+        for idx, seq in enumerate(layer_queqe):
+            # for idx, (name, layer) in enumerate(self.named_children()):
+            activation_layer = "leaky_relu"
+            # First module is the pretrained resnet backbone... we only want to override add sequential block
+            if idx == 0:
+                activation_layer = "relu"
+            self.initialize_kaiming_normal(seq, activation_layer)
+
+    def _weight_initialization(self, layer, activation_layer="leaky_relu"):
+        if isinstance(layer, nn.Conv2d):
+            print(f"Initializing {layer}")
+            nn.init.kaiming_normal_(layer.weight, mode="fan_in", nonlinearity=activation_layer)
+        elif isinstance(layer, nn.BatchNorm2d):
+            print(f"Initializing {layer}")
+            layer.weight.data.fill_(1)
+            layer.bias.data.zero_()
+
+    def initialize_kaiming_normal(self, module, activation_layer):
+       print(f"Module: {module}")
+       for name, layer in module.named_children():
+           if isinstance(layer, (nn.ModuleList, nn.Sequential)):
+               print(f"RECURSIVE CALL")
+               self.initialize_kaiming_normal(layer, activation_layer)
+           else:
+               print(f"Current layer: {name}")
+               self._weight_initialization(layer, activation_layer)
+
 
     def decode_keypoint(self, output):
         vertex = output['vertex'].permute(0, 2, 3, 1)
