@@ -24,6 +24,40 @@ mean = pvnet_config.mean
 std = pvnet_config.std
 
 import wandb
+import torch.onnx.symbolic_helper as sym_help
+
+def diag_symbolic(g, input):
+    # Retrieve the size of the input tensor
+    input = input[0]
+    input_shape = g.op("Shape", input)
+    input_shape_size = g.op("Shape", input_shape, axis_i=torch.tensor([0], dtype=torch.int64))
+    size = g.op("Squeeze", input_shape_size)
+
+    # Create a zero tensor with the same device and dtype as the input
+    # zeros = g.op("Constant", value_t=torch.tensor([0], dtype=torch.int64))
+
+                    
+    # Create a zero tensor with the same device and dtype as the input
+    zeros = g.op("ConstantOfShape", input_shape, value_t=torch.tensor(0, dtype=torch.float32))
+    zero_tensor = g.op("Unsqueeze", zeros, axes_i=torch.tensor([0], dtype=torch.int64))
+    zero_tensor = g.op("Unsqueeze", zero_tensor, axes_i=torch.tensor([0], dtype=torch.int64))
+    zero_tensor = g.op("Expand", zero_tensor, size)
+
+    # Create an identity matrix with size=size
+    # identity = g.op("EyeLike", zero_tensor, dtype_i=sym_help.cast_pytorch_to_onnx["torch.int64"])
+    identity = g.op("EyeLike", zero_tensor)
+    
+    # Element-wise multiplication to get the diagonal elements
+    output = g.op("Mul", input, identity)
+
+    return output
+
+# Register the symbolic function for the diag operation
+OPSET_VER=12
+def diag_symbolic_wrapper(g, *input):
+     return diag_symbolic(g, input)
+
+torch.onnx.register_custom_op_symbolic('::diag', diag_symbolic_wrapper, opset_version=OPSET_VER)
 
 class Trainer(object):
     def __init__(self, network):
