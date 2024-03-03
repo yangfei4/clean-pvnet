@@ -16,17 +16,6 @@ import wandb
 wandb.init(entity="cobot_illfit", project="pvnet_cobot", name=cfg.train.exp_name, 
            config={"learning_rate": cfg.train.lr, "epochs": cfg.train.epoch, "batch_size": cfg.train.batch_size})
 
-class NoneScheduler(object):
-    def __init__(self, optim):
-        self.optim = optim
-
-    def step(self):
-        pass
-
-    def get_last_lr(self):
-        return [self.optim.param_groups[0]['lr']]
-
-
 def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
