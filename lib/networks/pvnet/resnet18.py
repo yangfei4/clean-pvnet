@@ -1,7 +1,7 @@
 from torch import nn
 import torch
 from torch.nn import functional as F
-from .resnet import resnet18
+from .resnet import resnet18, resnet34, resnet50
 from lib.csrc.ransac_voting.ransac_voting_gpu import ransac_voting_layer, ransac_voting_layer_v3, estimate_voting_distribution_with_mean
 from lib.config import cfg
 import torch.onnx.symbolic_helper as sym_help
@@ -27,7 +27,11 @@ class Resnet18(nn.Module):
 
         # Load the pretrained weights, remove avg pool
         # layer and get the output stride of 8
-        resnet18_8s = resnet18(fully_conv=True,
+        resnet = resnet18
+        if cfg.train.resnet34:
+            resnet = resnet34
+
+        resnet18_8s = resnet(fully_conv=True,
                                pretrained=True,
                                output_stride=8,
                                remove_avg_pool_layer=True)
