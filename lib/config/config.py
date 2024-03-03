@@ -22,7 +22,6 @@ cfg.network = 'dla_34'
 
 # network heads
 cfg.heads = ''
-
 # task
 cfg.task = ''
 
@@ -62,6 +61,11 @@ cfg.train.nosched = False
 cfg.train.warmup = False
 cfg.train.milestones = [80, 120]
 cfg.train.gamma = 0.5
+
+cfg.train.resnet34 = False
+cfg.train.cosine = True
+cfg.train.t_0 = 10
+cfg.train.t_mult = 1
 
 cfg.train.batch_size = 4
 
