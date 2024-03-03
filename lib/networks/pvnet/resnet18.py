@@ -4,7 +4,22 @@ from torch.nn import functional as F
 from .resnet import resnet18
 from lib.csrc.ransac_voting.ransac_voting_gpu import ransac_voting_layer, ransac_voting_layer_v3, estimate_voting_distribution_with_mean
 from lib.config import cfg
+import torch.onnx.symbolic_helper as sym_help
 
+OPSET_VER=12
+def ransac_voting_symbolic(g, *inputs):
+    # Define the ONNX symbolic representation of the RANSAC voting layer
+    # Construct the ONNX graph using symbolic operations
+    
+    # Example:
+    output = g.op("RansacVoting", *inputs)
+    return output
+
+# Register the symbolic function for the RANSAC voting layer
+def ransac_voting_symbolic_wrapper(g, *inputs):
+    return ransac_voting_symbolic(g, *inputs)
+
+torch.onnx.register_custom_op_symbolic('::RansacVoting', ransac_voting_symbolic_wrapper, opset_version=OPSET_VER)
 
 class Resnet18(nn.Module):
     def __init__(self, ver_dim, seg_dim, fcdim=256, s8dim=128, s4dim=64, s2dim=32, raw_dim=32):
@@ -100,7 +115,6 @@ class Resnet18(nn.Module):
                 self.decode_keypoint(ret)
 
         return ret
-
 
 def get_res_pvnet(ver_dim, seg_dim):
     model = Resnet18(ver_dim, seg_dim)
