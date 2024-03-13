@@ -5,6 +5,7 @@ from lib.datasets import make_data_loader
 from lib.utils.net_utils import load_model, save_model, load_network
 from lib.evaluators import make_evaluator
 from tqdm import tqdm, trange
+import os
 import torch.multiprocessing
 import time
 
@@ -54,12 +55,14 @@ def train(cfg, network):
         if cfg.train.warmup and not cfg.train.cosine:
             scheduler.step()
 
-        # Evaluate and save model periodically
-        # TODO: Add proper cross validation. 
-        if epoch % cfg.save_ep == 0:
+        # Preform cross validation of the model periodically
+        if epoch % cfg.eval_ep == 0:
             trainer.val(epoch, val_loader, evaluator, recorder, scheduler, optimizer)
-            save_model(network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
         
+    # Save and upload best model to wandb for reference
+    path_to_ckpt = os.path.join(cfg.model_dir, '{}.pth'.format(epoch))
+    torch.save(trainer.model_ckpt_data, path_to_ckpt)
+    wandb.save(path_to_ckpt)
 
     print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch:")
     print(f"{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")

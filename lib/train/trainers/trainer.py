@@ -5,6 +5,7 @@ import datetime
 import torch
 import tqdm
 import shutil
+from torch import nn
 from torch.nn import DataParallel
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from lib.utils import img_utils
 from lib.utils.pvnet import pvnet_config
 from lib.datasets.transforms import make_transforms
 from lib.visualizers import make_visualizer
+from lib.utils.net_utils import save_model
 
 
 mean = pvnet_config.mean
@@ -44,7 +46,6 @@ def diag_symbolic(g, input):
     zero_tensor = g.op("Expand", zero_tensor, size)
 
     # Create an identity matrix with size=size
-    # identity = g.op("EyeLike", zero_tensor, dtype_i=sym_help.cast_pytorch_to_onnx["torch.int64"])
     identity = g.op("EyeLike", zero_tensor)
     
     # Element-wise multiplication to get the diagonal elements
@@ -65,6 +66,7 @@ class Trainer(object):
         network = DataParallel(network)
         self.network = network
         self.batch_to_vis = None
+        self.max_kpt_projection_err = 1E3
 
     def set_fixed_batch(self, fixed_batch, num_samples=cfg.train.batch_size):
         self.fixed_batch = fixed_batch
@@ -178,6 +180,13 @@ class Trainer(object):
             result = evaluator.summarize()
             val_loss_stats.update(result)
         
+        # Save model checkpoint based
+        cur_pix_err = result['kpt_error']
+        if cur_pix_err < self.max_kpt_projection_err:
+            self.model_ckpt_data = save_model(self.network.module, optimizer, scheduler, recorder, epoch, cfg.model_dir)
+            print(f"Saving model... 2D Reprojection error decreased from {self.max_kpt_projection_err:3f} ---> {cur_pix_err}")
+            self.max_kpt_projection_err = cur_pix_err
+
         if recorder and scheduler and optimizer:
             visualizer = make_visualizer(cfg)
 
