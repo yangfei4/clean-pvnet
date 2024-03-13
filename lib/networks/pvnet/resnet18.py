@@ -77,16 +77,17 @@ class Resnet18(nn.Module):
         )
         self.up2storaw = nn.UpsamplingBilinear2d(scale_factor=2)
 
-        # Use Kiameng initialization of weights and bias of various layers that were not pretrained
-        layer_queqe = (self.resnet18_8s.fc,  self.conv8s, self.up8sto4s,
-                       self.conv4s, self.conv2s, self.up4sto2s, self.convraw, self.up2storaw)
+        # Use Kiaming initialization of weights and bias of various layers that were not pretrained
+        if cfg.train.kaiming_init:
+            print("Weight initialization with Kaimin")
+            layer_queqe = (self.resnet18_8s.fc,  self.conv8s, self.up8sto4s,
+                           self.conv4s, self.conv2s, self.up4sto2s, self.convraw, self.up2storaw)
 
-        for idx, seq in enumerate(layer_queqe):
-            # for idx, (name, layer) in enumerate(self.named_children()):
-            activation_layer = "leaky_relu"
-            # First module is the pretrained resnet backbone... we only want to override add sequential block
-            if idx == 0:
-                activation_layer = "relu"
+            for idx, seq in enumerate(layer_queqe):
+                activation_layer = "leaky_relu"
+                # First module is the pretrained resnet backbone... we only want to override add sequential block
+                if idx == 0:
+                    activation_layer = "relu"
             self.initialize_kaiming_normal(seq, activation_layer)
 
     def _weight_initialization(self, layer, activation_layer="leaky_relu"):

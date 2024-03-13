@@ -69,6 +69,8 @@ cfg.train.t_mult = 1
 
 cfg.train.batch_size = 4
 
+cfg.train.kaiming_init = False
+
 #augmentation
 cfg.train.affine_rate = 0.
 cfg.train.cropresize_rate = 0.
