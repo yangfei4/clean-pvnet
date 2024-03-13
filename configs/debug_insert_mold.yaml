@@ -46,11 +46,9 @@ train:
     vis_train_input: True
     noPad: True
     noTrans: True
-    nosched: True
     deterministic: True
-    epoch: 200
+    epoch: 10000
     milestones: (20, 40, 60, 80, 100, 120, 160, 180, 200, 220)
-    gamma: 0.5
     batch_size: 32
     dataset: 'FitTrain'
     affine_rate: 0.
@@ -63,6 +61,11 @@ train:
     resize_ratio_max: 1.01
     weight_decay: 0.
     batch_sampler: 'image_size'
+    gamma: 0.5
+    # nosched: True
+    cosine: True
+    t_0: 10
+    t_mult: 2 
 test:
     dataset: 'FitTest'
     batch_size: 1
