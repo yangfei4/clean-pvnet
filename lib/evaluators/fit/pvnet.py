@@ -196,6 +196,7 @@ class Evaluator:
 
         print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_rotation, angular_rotation_std))
         print('Angular Error (quaternion): {:.2f} deg, std {:.2f}'.format(angular_quat, angular_quat_std))
+        print('='*100)
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
         # print('Euler Angle Error (Y-axis): {:.1f} deg'.format(euler_err[1]))
