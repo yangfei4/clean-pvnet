@@ -4,6 +4,7 @@ import pycocotools.coco as coco
 import numpy as np
 from lib.utils.pvnet import pvnet_config
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 from lib.utils import img_utils
 import matplotlib.patches as patches
 from lib.utils.pvnet import pvnet_pose_utils
