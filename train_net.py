@@ -14,8 +14,7 @@ import numpy as np
 import random
 
 import wandb
-wandb.init(entity="cobot_illfit", project="pvnet_cobot", name=cfg.train.exp_name, 
-           config={"learning_rate": cfg.train.lr, "epochs": cfg.train.epoch, "batch_size": cfg.train.batch_size})
+
 
 def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
@@ -78,12 +77,38 @@ def test(cfg, network):
     trainer.val(epoch, val_loader, evaluator)
 
 
-def main():
-    network = make_network(cfg)
-    if args.test:
-        test(cfg, network)
-    else:
-        train(cfg, network)
+def main(cfg=cfg):
+    with wandb.init(config=cfg):
+        if cfg.train.wandb_sweep:
+            cfg.train.t_0          = wandb.config.t_0
+            cfg.train.t_mult       = wandb.config.t_mult
+            cfg.train.lr           = wandb.config.lr
+
+        network = make_network(cfg)
+        if args.test:
+            test(cfg, network)
+        else:
+            train(cfg, network)
+    wandb.finish()
+
+if cfg.train.wandb_sweep:
+    if cfg.train.deterministic:
+        set_seed() 
+
+    sweep_config = {'method': 'bayes'} #'random'}
+
+    # metric = {'name': '/Eval/eval_result.kpt_error','goal': 'minimize'}
+    metric = {'name': '/Eval/eval_result.z_err_mm','goal': 'minimize'}
+
+    parameters = {'lr' : {'max': 0.01, 'min': 1e-4},
+                  't_0': {'max': 40, 'min': 10},
+                  't_mult': {'max': 10, 'min': 1}}
+
+    sweep_config['metric'] = metric
+    sweep_config['parameters'] = parameters
+
+    sweep_id = wandb.sweep(sweep_config, entity="cobot_illfit", project="pvnet_cobot")
+    wandb.agent(sweep_id, main)
 
 
 if __name__ == "__main__":
