@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/pvnet/lib/csrc/uncertainty_pnp/include/ceres-solver-2.0.0/include/ceres/internal/integer_sequence_algorithm.h
+utility
+-
+
+/pvnet/lib/csrc/uncertainty_pnp/include/ceres-solver-2.0.0/internal/ceres/integer_sequence_algorithm_test.cc
+ceres/internal/integer_sequence_algorithm.h
+/pvnet/lib/csrc/uncertainty_pnp/include/ceres-solver-2.0.0/internal/ceres/ceres/internal/integer_sequence_algorithm.h
+type_traits
+-
+utility
+-
+

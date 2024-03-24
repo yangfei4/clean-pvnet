@@ -59,9 +59,15 @@ def train(cfg, network):
             trainer.val(epoch, val_loader, evaluator, recorder, scheduler, optimizer)
         
     # Save and upload best model to wandb for reference
-    path_to_ckpt = os.path.join(cfg.model_dir, '{}.pth'.format(epoch))
+    best_epoch = trainer.model_ckpt_data['epoch'] + 1
+    path_to_ckpt = os.path.join(cfg.model_dir, '{}.pth'.format(best_epoch))
     torch.save(trainer.model_ckpt_data, path_to_ckpt)
     wandb.save(path_to_ckpt)
+
+    print(f"{'='*100}\nFinal Cross Validation Results\n{'='*100}")
+    # load_model(network, optimizer, scheduler, recorder, cfg.model_dir, resume=cfg.resume)
+    trainer.network.load_state_dict(torch.load(path_to_ckpt)['net'])
+    trainer.val(best_epoch, val_loader, evaluator, recorder, scheduler, optimizer)
 
     print(f"[Timing] Training for {cfg.train.epoch - begin_epoch} epoch:")
     print(f"{time.time() - time_start} seconds \n{(time.time() - time_start)/3600} hours")

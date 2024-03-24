@@ -288,19 +288,22 @@ def load_model(net, optim, scheduler, recorder, model_dir, resume=True, epoch=-1
 
 def save_model(net, optim, scheduler, recorder, epoch, model_dir):
     os.system('mkdir -p {}'.format(model_dir))
-    torch.save({
+    ckpt_data = {
         'net': net.state_dict(),
         'optim': optim.state_dict(),
         'scheduler': scheduler.state_dict() if not isinstance(scheduler, (type(None), object)) else None,
         'recorder': recorder.state_dict(),
         'epoch': epoch
-    }, os.path.join(model_dir, '{}.pth'.format(epoch)))
+    }
+
+    torch.save(ckpt_data, os.path.join(model_dir, '{}.pth'.format(epoch)))
 
     # remove previous pretrained model if the number of models is too big
     pths = [int(pth.split('.')[0]) for pth in os.listdir(model_dir)]
     if len(pths) <= 200:
-        return
+        return ckpt_data
     os.system('rm {}'.format(os.path.join(model_dir, '{}.pth'.format(min(pths)))))
+    return ckpt_data
 
 
 def load_network(net, model_dir, resume=True, epoch=-1, strict=True):
