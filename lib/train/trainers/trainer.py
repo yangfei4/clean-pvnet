@@ -67,6 +67,7 @@ class Trainer(object):
         self.network = network
         self.batch_to_vis = None
         self.max_kpt_projection_err = 1E3
+        self.max_trans_z_err = 1E99
 
     def set_fixed_batch(self, fixed_batch, num_samples=cfg.train.batch_size):
         self.fixed_batch = fixed_batch
@@ -182,10 +183,14 @@ class Trainer(object):
         
         # Save model checkpoint based
         cur_pix_err = result['kpt_error']
-        if cur_pix_err < self.max_kpt_projection_err:
-            self.model_ckpt_data = save_model(self.network.module, optimizer, scheduler, recorder, epoch, cfg.model_dir)
-            print(f"Saving model... 2D Reprojection error decreased from {self.max_kpt_projection_err:3f} ---> {cur_pix_err}")
+        cur_z_err = result['z_err_mm']
+        if cur_z_err < self.max_trans_z_err:
+            self.model_ckpt_data = save_model(self.network, optimizer, scheduler, recorder, epoch, cfg.model_dir)
             self.max_kpt_projection_err = cur_pix_err
+
+            print(f"Saving model... Z trans error decreased from {self.max_trans_z_err:3f} mm  ---> {cur_z_err} mm")
+            self.max_trans_z_err = cur_z_err
+
 
         if recorder and scheduler and optimizer:
             visualizer = make_visualizer(cfg)

@@ -9,7 +9,7 @@ gpus: (0, 1, 2, 3)
 resume: false
 skip_eval: false
 save_ep : 5
-eval_ep : 5
+eval_ep : 20
 # Below values are getting from the dataset annotation(train.json)
 corner_3d: [[-0.004242, -0.00427, -0.00202],
             [-0.004242, -0.00427, 0.002126],
