@@ -47,7 +47,8 @@ train:
     noPad: True
     noTrans: True
     deterministic: True
-    epoch: 10000
+    #epoch: 200 #10000
+    epoch: 1000 #10000
     milestones: (20, 40, 60, 80, 100, 120, 160, 180, 200, 220)
     batch_size: 32
     dataset: 'FitTrain'
@@ -66,6 +67,7 @@ train:
     cosine: True
     t_0: 10
     t_mult: 2 
+    wandb_sweep: True
 test:
     dataset: 'FitTest'
     batch_size: 1
