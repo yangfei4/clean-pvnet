@@ -5,8 +5,7 @@ model_dir: 'data/model'
 network: 'res'
 heads: ''
 task: 'pvnet'
-#gpus: (0, 1, 2, 3)
-gpus: (1,)
+gpus: (0, 1, 2, 3)
 resume: true
 skip_eval: false
 save_ep : 5

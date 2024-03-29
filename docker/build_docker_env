@@ -1,4 +1,4 @@
 #!/usr/bin/bash
-container_name=${1:-cobot_vision}
+container_name=${1:-cobot_vision_yangfei}
 docker start $container_name 
 docker exec -it $container_name bash src/build_ros_ws

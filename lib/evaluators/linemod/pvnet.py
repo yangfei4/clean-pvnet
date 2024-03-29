@@ -18,7 +18,8 @@ from scipy import spatial
 from lib.utils.vsd import inout
 from transforms3d.quaternions import mat2quat, quat2mat
 from lib.csrc.nn import nn_utils
-
+from scipy import spatial
+from scipy.spatial.transform import Rotation
 
 class Evaluator:
 
@@ -37,6 +38,9 @@ class Evaluator:
         self.model = pvnet_data_utils.get_ply_model(model_path)
         self.diameter = linemod_config.diameters[cls] / 100
 
+        self.T_gt = []
+        self.T_pre = []
+
         self.proj2d = []
         self.add = []
         self.cmd5 = []
@@ -50,12 +54,36 @@ class Evaluator:
         self.height = 480
         self.width = 640
 
+        self.angular_rotation_err = [] # degree
+        self.angular_quaternion_err = [] # degree
+        self.trans_err = [] # meter
+
         model = inout.load_ply(model_path)
         model['pts'] = model['pts'] * 1000
         self.icp_refiner = icp_utils.ICPRefiner(model, (self.width, self.height)) if cfg.test.icp else None
         # if cfg.test.icp:
         #     self.icp_refiner = ext_.Synthesizer(os.path.realpath(model_path))
         #     self.icp_refiner.setup(self.width, self.height)
+
+    def average_error(self, pose_pre, pose_gt):
+        self.T_gt.append(pose_gt)
+        self.T_pre.append(pose_pre)
+
+        t_pre = pose_pre[:, 3]
+        t_gt = pose_gt[:, 3]
+        translation_error = np.abs(t_pre - t_gt)
+        # if(translation_error[2] > 10): # outliers, error > 100m
+        #     return
+        self.trans_err.append(translation_error)
+        
+        R_pre_in_world = pose_pre[:, :3]
+        R_gt_in_world = pose_gt[:, :3]
+        R_pre_2_gt = np.dot(R_pre_in_world, R_gt_in_world.T)
+        trace = np.trace(R_pre_2_gt)
+        trace = trace if trace <= 3 else 3
+        trace = trace if trace >= -1 else -1
+        angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+        self.angular_rotation_err.append(angular_distance)
 
     def projection_2d(self, pose_pred, pose_targets, K, icp=False, threshold=5):
         model_2d_pred = pvnet_pose_utils.project(self.model, K, pose_pred)
@@ -70,7 +98,6 @@ class Evaluator:
         diameter = self.diameter * percentage
         model_pred = np.dot(self.model, pose_pred[:, :3].T) + pose_pred[:, 3]
         model_targets = np.dot(self.model, pose_targets[:, :3].T) + pose_targets[:, 3]
-
         if syn:
             idxs = nn_utils.find_nearest_point_idx(model_pred, model_targets)
             mean_dist = np.mean(np.linalg.norm(model_pred[idxs] - model_targets, 2, 1))
@@ -173,6 +200,24 @@ class Evaluator:
 
         return pose_icp
 
+    def quaternion_angular_err(self, T_pre, T_gt):
+        R1 = T_pre[:, :3]
+        R2 = T_gt[:, :3]
+
+        # Convert rotation matrices to quaternion representations
+        Q1 = Rotation.from_matrix(R1).as_quat()
+        Q2 = Rotation.from_matrix(R2).as_quat()
+
+        # Compute the dot product between the quaternions
+        def dot_product(q1, q2):
+            return q1[0]*q2[0] + q1[1]*q2[1] + q1[2]*q2[2] + q1[3]*q2[3]
+        Q_diff = dot_product(Q1, Q2)
+
+        angular_diff = 2 * np.arccos(Q_diff)
+        # Convert angular difference to degrees
+        angular_diff_deg = np.rad2deg(angular_diff)
+        self.angular_quaternion_err.append(angular_diff_deg)
+
     def evaluate(self, output, batch):
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
 
@@ -204,6 +249,8 @@ class Evaluator:
         self.projection_2d(pose_pred, pose_gt, K)
         self.cm_degree_5_metric(pose_pred, pose_gt)
         self.mask_iou(output, batch)
+        self.average_error(pose_pred, pose_gt)
+        self.quaternion_angular_err(pose_pred, pose_gt)
 
     def summarize(self):
         proj2d = np.mean(self.proj2d)
@@ -218,6 +265,22 @@ class Evaluator:
             print('2d projections metric after icp: {}'.format(np.mean(self.icp_proj2d)))
             print('ADD metric after icp: {}'.format(np.mean(self.icp_add)))
             print('5 cm 5 degree metric after icp: {}'.format(np.mean(self.icp_cmd5)))
+        
+        trans_list = np.array(self.trans_err) * 100 # m to cm
+        trans_err = np.mean(trans_list, axis=0)
+        trans_std = np.std(trans_list, axis=0)
+        angular_quat = np.mean(self.angular_quaternion_err)
+        angular_quat_std = np.std(self.angular_quaternion_err)
+        angular_rotation = np.mean(self.angular_rotation_err)
+        angular_rotation_std = np.std(self.angular_rotation_err)
+
+        print('Translation Error (X-axis): {:.2f} cm, std {:.2f}'.format(trans_err[0], trans_std[0]))
+        print('Translation Error (Y-axis): {:.2f} cm, std {:.2f}'.format(trans_err[1], trans_std[1]))
+        print('Translation Error (Z-axis): {:.2f} cm, std {:.2f}'.format(trans_err[2], trans_std[2]))
+
+        print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_rotation, angular_rotation_std))
+        print('Angular Error (quaternion): {:.2f} deg, std {:.2f}'.format(angular_quat, angular_quat_std))
+
         self.proj2d = []
         self.add = []
         self.cmd5 = []

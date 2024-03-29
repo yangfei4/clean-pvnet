@@ -9,6 +9,7 @@ from lib.utils import img_utils
 import matplotlib.patches as patches
 from lib.utils.pvnet import pvnet_pose_utils
 import cv2
+import torch
 
 from cobot_pipeline import reproject_keypoints
 
@@ -72,8 +73,30 @@ class Visualizer:
         ax.add_patch(patches.Polygon(xy=corner_2d_gt[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='g'))
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], fill=False, linewidth=1, edgecolor='b'))
         ax.add_patch(patches.Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'))
+    
         plt.show()
         return fig
+
+    def ransac_voting_layer_v3(self, mask, vertex):
+        '''
+        in our case, b(batch) size is 1
+        :param mask:      [b,h,w]
+        :param vertex:    [b,h,w,vn,2]
+        :return: [coords,direct]
+                 coords: [tn,2] - tn is the number of foreground pixels
+                 direct: [tn,vn,2] - in each pixel, the vector to the vertex
+        '''
+        b, h, w, vn, _ = vertex.shape
+        for bi in range(b):
+            cur_mask = (mask[bi]).byte()
+
+            coords = torch.nonzero(cur_mask).float()  # [tn,2]
+            coords = coords[:, [1, 0]]
+            # direct = vertex[bi].masked_select(torch.unsqueeze(torch.unsqueeze(cur_mask, 2), 3))  # [tn,vn,2]
+            direct = vertex[bi].masked_select(torch.unsqueeze(torch.unsqueeze(cur_mask, 2), 3).bool())  # [tn,vn,2]
+            direct = direct.view([coords.shape[0], vn, 2])
+        
+        return coords, direct
 
     def compute_dif(self, pose_pred, pose_targets):
         translation_distance = (pose_pred[:, 3] - pose_targets[:, 3]) * 1000 # mm
@@ -88,17 +111,61 @@ class Visualizer:
         print("Translation error: {} mm".format(translation_distance))
         print("Angular error: {} deg".format(angular_distance))
 
+    def draw_vector(self, output, output_path="/pvnet/data/visualization/inference"):
+        mask = torch.argmax(output['seg'], 1)
+        vertex = output['vertex'].permute(0, 2, 3, 1)
+        b, h, w, vn_2 = vertex.shape
+        vertex = vertex.view(b, h, w, vn_2//2, 2)
+        coord, direct = self.ransac_voting_layer_v3(mask, vertex)
+        coord = coord.detach().cpu().numpy()
+        direct = direct.detach().cpu().numpy()
+        mask = mask[0].detach().cpu().numpy()
+
+        # plot vectors for each keypoint
+        from matplotlib.colors import hsv_to_rgb
+        for i in range(direct.shape[1]):
+            # plot vectors for each pixel on input image
+            vector_map = np.zeros((128, 128, 3)).astype(np.float32)
+            for j in range(direct.shape[0]):
+                # import pdb; pdb.set_trace()
+                x_idx = int(round(coord[j, 1]))
+                y_idx = int(round(coord[j, 0]))
+
+                # magnitude = np.linalg.norm(direct[j, i])
+                magnitude = 1
+                direction = np.arctan2(direct[j, i, 1], direct[j, i, 0])
+
+                # Convert direction to hue value in the range [0, 2*pi]
+                hue = (direction + np.pi) / (2 * np.pi)
+
+                # Scale the magnitude to the range [0, 1] for saturation
+                saturation = magnitude / np.max(np.linalg.norm(direct, axis=2))
+
+                # Set the value (brightness) to 1
+                value = 1
+
+                # Convert HSV color to RGB
+                color = hsv_to_rgb([hue, saturation, value])
+                # Update the color of the vector in the vector map
+                vector_map[x_idx, y_idx] = color
+
+            vector_map = (vector_map*255).astype(np.uint8)
+            plt.imshow(vector_map)
+            plt.savefig(f'{output_path}/vectors_kpt{i}.png')
+
     def visualize_output(self, input_img, output, batch_example, K_cam=None):
         # output: 
         # 'seg'    : 1 x 2 x img_size x img_size
         # 'vertex' : 1 x 18 x img_size x img_size
         # 'mask'   : 1 x img_size x img_size
         # 'kpt_2d' : 1 x 9 x 2
-        # 'var'    : 1 x 9 x 2 x 2 
+        # 'var'    : 1 x 9 x 2 x 2
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         segmentation = output['seg'][0].detach().cpu().numpy()
         mask = output['mask'][0].detach().cpu().numpy()
-        
+
+        self.draw_vector(output)
+
         if K_cam is None:
             K_cam = np.array([[10704.062350, 0, 2107+64], 
                       [0, 10727.438047, 1323+64],
@@ -151,7 +218,6 @@ class Visualizer:
         plt.title('Pose Prediction')
         # plt.savefig("/pvnet/data/evaluation/topshell.png")
 
-
         ######################################################
         # logic to save a sub-figure as a numpy array
         ######################################################
@@ -174,6 +240,7 @@ class Visualizer:
 
         plt.show()
         # plt.close(0)
+        plt.savefig('/pvnet/data/visualization/inference/result.png')
         return pose_pred, output_np_arr
 
     def pose_matrix_to_euler(self, pose_matrix):
