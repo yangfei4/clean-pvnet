@@ -77,7 +77,7 @@ class Visualizer:
         plt.show()
         return fig
 
-    def ransac_voting_layer_v3(self, mask, vertex):
+    def vector_preprocess(self, mask, vertex):
         '''
         in our case, b(batch) size is 1
         :param mask:      [b,h,w]
@@ -116,7 +116,7 @@ class Visualizer:
         vertex = output['vertex'].permute(0, 2, 3, 1)
         b, h, w, vn_2 = vertex.shape
         vertex = vertex.view(b, h, w, vn_2//2, 2)
-        coord, direct = self.ransac_voting_layer_v3(mask, vertex)
+        coord, direct = self.vector_preprocess(mask, vertex)
         coord = coord.detach().cpu().numpy()
         direct = direct.detach().cpu().numpy()
         mask = mask[0].detach().cpu().numpy()
