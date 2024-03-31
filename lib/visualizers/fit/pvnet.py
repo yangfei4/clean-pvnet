@@ -153,6 +153,17 @@ class Visualizer:
             plt.imshow(vector_map)
             plt.savefig(f'{output_path}/vectors_kpt{i}.png')
 
+    def get_top4_vectors_indices(self, var):
+        # Compute the trace of each covariance matrix
+        traces = np.trace(var, axis1=-2, axis2=-1)
+        # Get the indices that would sort the traces in ascending order
+        sorted_indices = np.argsort(traces)
+
+        # Select the top 4 indices
+        top_4_indices = sorted_indices[:4]
+
+        return top_4_indices
+
     def visualize_output(self, input_img, output, batch_example, K_cam=None):
         # output: 
         # 'seg'    : 1 x 2 x img_size x img_size
@@ -163,6 +174,7 @@ class Visualizer:
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         segmentation = output['seg'][0].detach().cpu().numpy()
         mask = output['mask'][0].detach().cpu().numpy()
+
 
         self.draw_vector(output)
 
@@ -176,7 +188,11 @@ class Visualizer:
         kpt_3d = np.concatenate([anno['fps_3d'], [anno['center_3d']]], axis=0)
         corner_3d = np.array(anno['corner_3d'])
 
+        top4_kpts_index = self.get_top4_vectors_indices(output['var'][0].detach().cpu().numpy())
+        # kpt_3d = kpt_3d[top4_kpts_index]
+        # kpt_2d = kpt_2d[top4_kpts_index]
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K_cam)
+        # pose_pred = pvnet_pose_utils.pnp(selected_kpt_3d, selected_kpt_2d, K_cam)
 
         corner_2d_pred = pvnet_pose_utils.project(corner_3d, K_cam, pose_pred)
         print("Camera Intrinsics:")
