@@ -32,7 +32,7 @@ class Evaluator:
         self.T_gt = []
         self.T_pre = []
 
-        self.center2d_err = []
+        self.avg_2d_kpts_error = []
         self.proj2d = []
         self.add = []
         self.icp_add = []
@@ -44,9 +44,9 @@ class Evaluator:
         self.trans_err = [] # meter
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
 
-    def calculate_center2d_error(self, kpt_pred, kpt_gt):
-        error = np.sum(np.linalg.norm(kpt_pred - kpt_gt))
-        self.center2d_err.append(error)
+    def calculate_avg_2d_kpts_error_in_pixels(self, kpt_pred, kpt_gt):
+        error = np.linalg.norm(kpt_pred - kpt_gt) / np.sqrt(len(kpt_pred))
+        self.avg_2d_kpts_error.append(error)
 
     def average_error(self, pose_pre, pose_gt):
         self.T_gt.append(pose_gt)
@@ -139,6 +139,17 @@ class Evaluator:
         pose_pred = np.hstack((R_refined, t_refined.reshape((3, 1)) / 1000))
         return pose_pred
 
+    def get_top4_vectors_indices(self, var):
+        # Compute the trace of each covariance matrix
+        traces = np.trace(var, axis1=-2, axis2=-1)
+        # Get the indices that would sort the traces in ascending order
+        sorted_indices = np.argsort(traces)
+
+        # Select the top 4 indices
+        top_4_indices = sorted_indices[:4]
+
+        return top_4_indices
+
     def evaluate(self, output, batch):
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
 
@@ -148,6 +159,11 @@ class Evaluator:
         K = np.array(anno['K'])
 
         pose_gt = np.array(anno['pose'])
+
+        top4_kpts_index = self.get_top4_vectors_indices(output['var'][0].detach().cpu().numpy())
+        # kpt_3d = kpt_3d[top4_kpts_index]
+        # kpt_2d = kpt_2d[top4_kpts_index]
+
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
         if self.icp_render is not None:
             pose_pred_icp = self.icp_refine(pose_pred.copy(), anno, output, K)
@@ -161,10 +177,9 @@ class Evaluator:
         self.mask_iou(output, batch)
         self.average_error(pose_pred, pose_gt)
         self.quaternion_angular_err(pose_pred, pose_gt)
-
-        kpt_pred = output['kpt_2d'].squeeze()[img_id].cpu().numpy()
+        kpt_pred = output['kpt_2d'].squeeze().cpu().numpy()
         kpt_gt = np.array(anno["center_2d"])
-        self.calculate_center2d_error(kpt_pred, kpt_gt) 
+        self.calculate_avg_2d_kpts_error_in_pixels(kpt_pred, kpt_gt) 
 
     def summarize(self):
         proj2d = np.mean(self.proj2d)
@@ -181,8 +196,8 @@ class Evaluator:
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
 
-        kpt_projection_err = np.mean(self.center2d_err)
-        kpt_projection_std = np.std(self.center2d_err)
+        kpt_projection_err = np.mean(self.avg_2d_kpts_error)
+        kpt_projection_std = np.std(self.avg_2d_kpts_error)
 
         print('Keypoint Projection Error  : {:.2f} pix, std {:.2f}'.format(kpt_projection_err, kpt_projection_std))
         print('2d projections metric: {:.3f}'.format(proj2d))
@@ -215,5 +230,5 @@ class Evaluator:
         self.cmd5 = []
         self.mask_ap = []
         self.icp_add = []
-        self.center2d_err = []
+        self.avg_2d_kpts_error = []
         return {'proj2d': proj2d, 'add': add, 'cmd5': cmd5, 'ap': ap, 'x_err_mm': trans_err[0], 'y_err_mm': trans_err[1], 'z_err_mm': trans_err[2], 'angular_err': angular_rotation, 'kpt_error': kpt_projection_err}
