@@ -231,4 +231,4 @@ class Evaluator:
         self.mask_ap = []
         self.icp_add = []
         self.avg_2d_kpts_error = []
-        return {'proj2d': proj2d, 'add': add, 'cmd5': cmd5, 'ap': ap, 'x_err_mm': trans_err[0], 'y_err_mm': trans_err[1], 'z_err_mm': trans_err[2], 'angular_err': angular_rotation, 'kpt_error': kpt_projection_err}
+        return {'proj2d': proj2d, 'add': add, 'cmd5': cmd5, 'ap': ap, 'x_err_mm': trans_err[0], 'y_err_mm': trans_err[1], 'z_err_mm': trans_err[2], 'angular_err': angular_rotation, 'kpt_error': kpt_prediction_err}
