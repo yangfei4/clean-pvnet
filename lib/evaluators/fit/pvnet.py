@@ -178,7 +178,7 @@ class Evaluator:
         self.average_error(pose_pred, pose_gt)
         self.quaternion_angular_err(pose_pred, pose_gt)
         kpt_pred = output['kpt_2d'].squeeze().cpu().numpy()
-        kpt_gt = np.array(anno["center_2d"])
+        kpt_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
         self.calculate_avg_2d_kpts_error_in_pixels(kpt_pred, kpt_gt) 
 
     def summarize(self):
@@ -196,10 +196,10 @@ class Evaluator:
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
 
-        kpt_projection_err = np.mean(self.avg_2d_kpts_error)
-        kpt_projection_std = np.std(self.avg_2d_kpts_error)
+        kpt_prediction_err = np.mean(self.avg_2d_kpts_error)
+        kpt_prediction_std = np.std(self.avg_2d_kpts_error)
 
-        print('Keypoint Projection Error  : {:.2f} pix, std {:.2f}'.format(kpt_projection_err, kpt_projection_std))
+        print('Keypoint Prediction Error  : {:.2f} pix, std {:.2f}'.format(kpt_prediction_err, kpt_prediction_std))
         print('2d projections metric: {:.3f}'.format(proj2d))
         print('ADD metric: {:.3f}'.format(add))
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
