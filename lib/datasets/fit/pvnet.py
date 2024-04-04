@@ -45,9 +45,9 @@ class Dataset(data.Dataset):
             if not cfg.train.noPad:
                 inp, kpt_2d, mask = self.augment(img, mask, kpt_2d, height, width)
             else:
-                inp = img
+                inp = np.asarray(img).astype(np.uint8)
         else:
-            inp = img
+            inp = np.asarray(img).astype(np.uint8)
 
         if self._transforms is not None:
             inp, kpt_2d, mask = self._transforms(inp, kpt_2d, mask)
