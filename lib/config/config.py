@@ -84,6 +84,7 @@ cfg.train.resize_ratio_min = 0.8
 cfg.train.resize_ratio_max = 1.2
 
 cfg.train.batch_sampler = ''
+cfg.train.save_to_wandb = False
 
 # test
 cfg.test = CN()

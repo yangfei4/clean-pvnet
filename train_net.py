@@ -62,7 +62,8 @@ def train(cfg, network):
     best_epoch = trainer.model_ckpt_data['epoch'] + 1
     path_to_ckpt = os.path.join(cfg.model_dir, '{}.pth'.format(best_epoch))
     torch.save(trainer.model_ckpt_data, path_to_ckpt)
-    wandb.save(path_to_ckpt)
+    if cfg.train.save_to_wandb:
+        wandb.save(path_to_ckpt)
 
     print(f"{'='*100}\nFinal Cross Validation Results\n{'='*100}")
     # load_model(network, optimizer, scheduler, recorder, cfg.model_dir, resume=cfg.resume)
