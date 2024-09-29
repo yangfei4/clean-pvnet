@@ -40,9 +40,14 @@ class Evaluator:
         self.mask_ap = []
         # self.euler_err = [] # degree
         self.angular_rotation_err = [] # degree
-        self.angular_quaternion_err = [] # degree
+        # self.angular_quaternion_err = [] # degree
         self.trans_err = [] # meter
         self.icp_render = icp_utils.SynRenderer(cfg.cls_type) if cfg.test.icp else None
+
+        self.experiment_names = []
+        self.ablation_study_pose_list = dict()
+        # key: String - experiment_name
+        # value: pose_list[nx2x3x4], pose_list[i][0] is ground truth pose, pose_list[i][1] is calculated pose
 
     def calculate_avg_2d_kpts_error_in_pixels(self, kpt_pred, kpt_gt):
         error = np.linalg.norm(kpt_pred - kpt_gt) / np.sqrt(len(kpt_pred))
@@ -109,7 +114,7 @@ class Evaluator:
         angular_diff = 2 * np.arccos(Q_diff)
         # Convert angular difference to degrees
         angular_diff_deg = np.rad2deg(angular_diff)
-        self.angular_quaternion_err.append(angular_diff_deg)
+        # self.angular_quaternion_err.append(angular_diff_deg)
 
     def cm_degree_5_metric(self, pose_pred, pose_targets):
         translation_distance = np.linalg.norm(pose_pred[:, 3] - pose_targets[:, 3]) * 100
@@ -150,6 +155,12 @@ class Evaluator:
 
         return top_4_indices
 
+    def add_to_ablation_study_pose_list(self, experiment_name, pose_pred, pose_gt):
+        if experiment_name in self.ablation_study_pose_list:
+            self.ablation_study_pose_list[experiment_name].append([pose_gt, pose_pred])
+        else:
+            self.ablation_study_pose_list[experiment_name] = [[pose_gt, pose_pred]]
+
     def evaluate(self, output, batch):
         kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
 
@@ -160,10 +171,11 @@ class Evaluator:
 
         pose_gt = np.array(anno['pose'])
 
-        top4_kpts_index = self.get_top4_vectors_indices(output['var'][0].detach().cpu().numpy())
+        # top4_kpts_index = self.get_top4_vectors_indices(output['var'][0].detach().cpu().numpy())
         # kpt_3d = kpt_3d[top4_kpts_index]
         # kpt_2d = kpt_2d[top4_kpts_index]
 
+        # 1. Raw output from PvNet
         pose_pred = pvnet_pose_utils.pnp(kpt_3d, kpt_2d, K)
         if self.icp_render is not None:
             pose_pred_icp = self.icp_refine(pose_pred.copy(), anno, output, K)
@@ -181,24 +193,86 @@ class Evaluator:
         kpt_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
         self.calculate_avg_2d_kpts_error_in_pixels(kpt_pred, kpt_gt) 
 
+        # 2. Raw output from PvNet with orientation refinement
+
+        # 3. GT keypoints
+        kpt_2d_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
+        pose_pred_from_kpts_gt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_gt, K)
+        experiment_name3 = "GT keypoints"
+        self.add_to_ablation_study_pose_list(experiment_name3, pose_pred_from_kpts_gt, pose_gt)
+        # self.average_error_kpt_gt_to_pnp(pose_pred_from_kpts_gt, pose_gt)
+
+        # 4. 1-pixel-1-keypoint
+        kpt_2d_1pixel_shift_1kpt = kpt_2d_gt
+        kpt_2d_1pixel_shift_1kpt[0][0] += 1
+        pose_pred_1pixel_shift_1kpt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_shift_1kpt, K)
+        experiment_name4 = "1 pixel shift to keypoint1"
+        self.add_to_ablation_study_pose_list(experiment_name4, pose_pred_1pixel_shift_1kpt, pose_gt)
+
+        # 5. 2-pixel-1-keypoint
+        
+        # 6. 1-pixel-2-keypoints
+        # 7. 2-pixel-2-keypoints
+
+        # 8. 1-pixel-all-keypoints
+        # 9. 2-pixel-all-keypoints
+
+    def summarize_abalation_study_result(self):
+        for experiment_name, pose_list in self.ablation_study_pose_list.items():
+            trans_err_all = []
+            angular_err_all = []
+            
+            for pose_gt, pose_pre in pose_list:
+                t_pre = pose_pre[:, 3]
+                t_gt = pose_gt[:, 3]
+                translation_error = np.abs(t_pre - t_gt)
+                trans_err_all.append(translation_error)
+                
+                R_pre_in_world = pose_pre[:, :3]
+                R_gt_in_world = pose_gt[:, :3]
+                R_pre_2_gt = np.dot(R_pre_in_world, R_gt_in_world.T)
+                trace = np.trace(R_pre_2_gt)
+                trace = min(3, max(-1, trace))
+                angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+                angular_err_all.append(angular_distance)
+            
+            trans_err_all = np.array(trans_err_all) * 1000 # m to mm
+            angular_err_all = np.array(angular_err_all)
+            
+            trans_error_mean = np.mean(trans_err_all, axis=0)
+            trans_error_std = np.std(trans_err_all, axis=0)
+            
+            angular_error_mean = np.mean(angular_err_all)
+            angular_error_std = np.std(angular_err_all)
+            
+            print("========================================================")
+            print("Below is the result of " + experiment_name + ": ")
+            print('Translation Error (X-axis): {:.2f} mm, std {:.2f}'.format(trans_error_mean[0], trans_error_std[0]))
+            print('Translation Error (Y-axis): {:.2f} mm, std {:.2f}'.format(trans_error_mean[1], trans_error_std[1]))
+            print('Translation Error (Z-axis): {:.2f} mm, std {:.2f}'.format(trans_error_mean[2], trans_error_std[2]))
+            print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_error_mean, angular_error_std))
+
     def summarize(self):
         proj2d = np.mean(self.proj2d)
         add = np.mean(self.add)
         cmd5 = np.mean(self.cmd5)
         ap = np.mean(self.mask_ap)
 
+        # 1. Raw output from PvNet
         trans_list = np.array(self.trans_err) * 1000 # m to mm
         trans_err = np.mean(trans_list, axis=0)
         trans_std = np.std(trans_list, axis=0)
-        angular_quat = np.mean(self.angular_quaternion_err)
-        angular_quat_std = np.std(self.angular_quaternion_err)
-
+        # angular_quat = np.mean(self.angular_quaternion_err)
+        # angular_quat_std = np.std(self.angular_quaternion_err)
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
+
 
         kpt_prediction_err = np.mean(self.avg_2d_kpts_error)
         kpt_prediction_std = np.std(self.avg_2d_kpts_error)
 
+        print("========================================================")
+        print("Below is the result from raw pvnet: ")
         print('Keypoint Prediction Error  : {:.2f} pix, std {:.2f}'.format(kpt_prediction_err, kpt_prediction_std))
         print('2d projections metric: {:.3f}'.format(proj2d))
         print('ADD metric: {:.3f}'.format(add))
@@ -208,9 +282,16 @@ class Evaluator:
         print('Translation Error (X-axis): {:.2f} mm, std {:.2f}'.format(trans_err[0], trans_std[0]))
         print('Translation Error (Y-axis): {:.2f} mm, std {:.2f}'.format(trans_err[1], trans_std[1]))
         print('Translation Error (Z-axis): {:.2f} mm, std {:.2f}'.format(trans_err[2], trans_std[2]))
-
         print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_rotation, angular_rotation_std))
-        print('Angular Error (quaternion): {:.2f} deg, std {:.2f}'.format(angular_quat, angular_quat_std))
+
+        # 2. Raw output from PvNet with orientation refinement
+        # TODO(yangfei): add stable pose logic here
+        print("========================================================")
+        print("Below is the result from raw pvnet with orientation refinement: ")
+
+        # 3. Process and Report ablation study result
+        self.summarize_abalation_study_result()
+
         print('='*100)
         # euler_err = np.mean(self.euler_err, axis=0)
         # print('Euler Angle Error (X-axis): {:.1f} deg'.format(euler_err[0]))
