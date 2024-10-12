@@ -1,7 +1,9 @@
+import io
 from lib.datasets.dataset_catalog import DatasetCatalog
 from lib.config import cfg
 import pycocotools.coco as coco
 import numpy as np
+import random
 from lib.utils.pvnet import pvnet_pose_utils, pvnet_data_utils
 import os
 from lib.utils.linemod import linemod_config
@@ -11,7 +13,11 @@ if cfg.test.icp:
 from PIL import Image
 from lib.utils.img_utils import read_depth
 from scipy import spatial
+from scipy.spatial import distance
 from scipy.spatial.transform import Rotation
+
+import sys
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 class Evaluator:
 
@@ -25,6 +31,13 @@ class Evaluator:
 
         data_root = args['data_root']
         cls = cfg.cls_type
+        # should be consistent with cls_alpha_zoffset_map in stable_pose_est.py
+        cls_str_to_int_map = {
+            "mainshell": 0,
+            "topshell": 1,
+            "insert_mold": 2
+        }
+        self.cls_int = cls_str_to_int_map[cls]
         model_path = os.path.join('data', cls+'_train', 'model.ply')
         self.model = pvnet_data_utils.get_ply_model(model_path)
         # self.diameter = np.loadtxt('data/custom/diameter.txt').item()
@@ -48,6 +61,9 @@ class Evaluator:
         self.ablation_study_pose_list = dict()
         # key: String - experiment_name
         # value: pose_list[nx2x3x4], pose_list[i][0] is ground truth pose, pose_list[i][1] is calculated pose
+
+        self.max_euclidean_dis_bewteen_kpts = -np.inf
+        self.min_euclidean_dis_bewteen_kpts = np.inf
 
     def calculate_avg_2d_kpts_error_in_pixels(self, kpt_pred, kpt_gt):
         error = np.linalg.norm(kpt_pred - kpt_gt) / np.sqrt(len(kpt_pred))
@@ -194,28 +210,142 @@ class Evaluator:
         self.calculate_avg_2d_kpts_error_in_pixels(kpt_pred, kpt_gt) 
 
         # 2. Raw output from PvNet with orientation refinement
+        # Pose Refinement: need T_cam_in_world, T_object_in_world
+        if cfg.test.enable_refinement :
+            from mrcnn.stable_poses_est import construct_T_stable_from_T_est
+            T_cam_in_world = np.array(anno['cam_pose_world']) # 4x4
+            # T_object_gt_in_world = np.array(anno['object_pose_world']) # 4x4
+            # T_object_in_cam = np.linalg.inv(T_cam_in_world) @ T_object_in_world # T_object_in_cam[:3][:]== pose_gt
+            T_pred_in_cam = np.vstack([pose_pred, [0, 0, 0, 1]])
+            T_pred_in_world =  T_cam_in_world @ T_pred_in_cam
+            T_stable_in_world = construct_T_stable_from_T_est(T_pred_in_world, self.cls_int)
+            T_stable_in_cam = np.linalg.inv(T_cam_in_world) @ T_stable_in_world
+            # Replace back x and y, stable-pose refinement is only for z and orientation
+            T_stable_in_cam[0][3] = T_pred_in_cam[0][3]
+            T_stable_in_cam[1][3] = T_pred_in_cam[1][3]
+            refinement_experiment_name = "pose estimation with stable-pose refinement"
+            self.add_to_ablation_study_pose_list(refinement_experiment_name, T_stable_in_cam[:3], pose_gt)
 
         # 3. GT keypoints
         kpt_2d_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
+
+        # Calculate the euclidean distance between any of two kpts (pixels)
+        distances = distance.cdist(kpt_2d_gt, kpt_2d_gt, 'euclidean')
+        max_distance = np.max(distances)
+        np.fill_diagonal(distances, np.inf)  # avoid comparing with itself
+        min_distance = np.min(distances)
+        self.max_euclidean_dis_bewteen_kpts = max(self.max_euclidean_dis_bewteen_kpts, max_distance)
+        self.min_euclidean_dis_bewteen_kpts = min(self.min_euclidean_dis_bewteen_kpts, min_distance)
+
         pose_pred_from_kpts_gt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_gt, K)
         experiment_name3 = "GT keypoints"
         self.add_to_ablation_study_pose_list(experiment_name3, pose_pred_from_kpts_gt, pose_gt)
         # self.average_error_kpt_gt_to_pnp(pose_pred_from_kpts_gt, pose_gt)
 
-        # 4. 1-pixel-1-keypoint
-        kpt_2d_1pixel_shift_1kpt = kpt_2d_gt
-        kpt_2d_1pixel_shift_1kpt[0][0] += 1
-        pose_pred_1pixel_shift_1kpt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_shift_1kpt, K)
-        experiment_name4 = "1 pixel shift to keypoint1"
-        self.add_to_ablation_study_pose_list(experiment_name4, pose_pred_1pixel_shift_1kpt, pose_gt)
-
-        # 5. 2-pixel-1-keypoint
+        # Helper function to apply random + or - noise
+        def apply_random_noise(value, noise_amount):
+            return value + random.choice([-noise_amount, noise_amount])
         
-        # 6. 1-pixel-2-keypoints
-        # 7. 2-pixel-2-keypoints
+        # 4. 1-pixel-1-keypoint noise
+        kpt_2d_1pixel_noise_1kpt = kpt_2d_gt.copy()
+        random_kpt_idx = random.randint(0, 7)
+        random_x_or_y = random.randint(0, 1)
+        kpt_2d_1pixel_noise_1kpt[random_kpt_idx][random_x_or_y] = apply_random_noise(kpt_2d_1pixel_noise_1kpt[random_kpt_idx][random_x_or_y], 1)
+        pose_pred_1pixel_noise_1kpt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_noise_1kpt, K)
+        experiment_name4 = "adding ±1 pixel noise to x(or y) coordinate of a random keypoint"
+        self.add_to_ablation_study_pose_list(experiment_name4, pose_pred_1pixel_noise_1kpt, pose_gt)
 
-        # 8. 1-pixel-all-keypoints
-        # 9. 2-pixel-all-keypoints
+        # 5. 2-pixel-1-keypoint noise
+        kpt_2d_2pixel_noise_1kpt = kpt_2d_gt.copy()
+        random_kpt_idx = random.randint(0, 7)
+        random_x_or_y = random.randint(0, 1)
+        kpt_2d_2pixel_noise_1kpt[random_kpt_idx][random_x_or_y] = apply_random_noise(kpt_2d_2pixel_noise_1kpt[random_kpt_idx][random_x_or_y], 2)
+        pose_pred_2pixel_noise_1kpt = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_2pixel_noise_1kpt, K)
+        experiment_name5 = "adding ±2 pixel noise to x(or y) coordinate of a random keypoint"
+        self.add_to_ablation_study_pose_list(experiment_name5, pose_pred_2pixel_noise_1kpt, pose_gt)
+
+        # 6. 1-pixel-2-keypoints noise, same noise pattern for all kpts
+        kpt_2d_1pixel_noise_2kpts = kpt_2d_gt.copy()
+        random_kpt_idx_1 = random.randint(0, 7)
+        random_x_or_y_1 = random.randint(0, 1)
+        random_kpt_idx_2 = random.randint(0, 7)
+        random_x_or_y_2 = random.randint(0, 1)
+        kpt_2d_1pixel_noise_2kpts[random_kpt_idx_1][random_x_or_y_1] = apply_random_noise(kpt_2d_1pixel_noise_2kpts[random_kpt_idx_1][random_x_or_y_1], 1)
+        kpt_2d_1pixel_noise_2kpts[random_kpt_idx_2][random_x_or_y_2] = apply_random_noise(kpt_2d_1pixel_noise_2kpts[random_kpt_idx_2][random_x_or_y_2], 1)
+        pose_pred_1pixel_noise_2kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_noise_2kpts, K)
+        experiment_name6 = "adding ±1 pixel noise to x(or y) coordinates of two random keypoints, same noise pattern for all kpts"
+        self.add_to_ablation_study_pose_list(experiment_name6, pose_pred_1pixel_noise_2kpts, pose_gt)
+
+        # 7. 2-pixel-2-keypoints noise, same noise pattern for all kpts
+        kpt_2d_2pixel_noise_2kpts = kpt_2d_gt.copy()
+        random_kpt_idx_1 = random.randint(0, 7)
+        random_x_or_y_1 = random.randint(0, 1)
+        random_kpt_idx_2 = random.randint(0, 7)
+        random_x_or_y_2 = random.randint(0, 1)
+        kpt_2d_2pixel_noise_2kpts[random_kpt_idx_1][random_x_or_y_1] = apply_random_noise(kpt_2d_2pixel_noise_2kpts[random_kpt_idx_1][random_x_or_y_1], 2)
+        kpt_2d_2pixel_noise_2kpts[random_kpt_idx_2][random_x_or_y_2] = apply_random_noise(kpt_2d_2pixel_noise_2kpts[random_kpt_idx_2][random_x_or_y_2], 2)
+        pose_pred_2pixel_noise_2kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_2pixel_noise_2kpts, K)
+        experiment_name7 = "adding ±2 pixel noise to x(or y) coordinates of two random keypoints, same noise pattern for all kpts"
+        self.add_to_ablation_study_pose_list(experiment_name7, pose_pred_2pixel_noise_2kpts, pose_gt)
+
+        # 8. 1-pixel-all-keypoints noise, same noise pattern for all kpts
+        kpt_2d_1pixel_noise_all_kpts = kpt_2d_gt.copy()
+        kpt_2d_1pixel_noise_all_kpts = kpt_2d_1pixel_noise_all_kpts + random.choice([-1, 1])
+        pose_pred_1pixel_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_noise_all_kpts, K)
+        experiment_name8 = "adding ±1 pixel noise to x(or y) coordinates of all keypoints, same noise pattern for all kpts"
+        self.add_to_ablation_study_pose_list(experiment_name8, pose_pred_1pixel_noise_all_kpts, pose_gt)
+
+        # 9. 2-pixel-all-keypoints noise, same noise pattern for all kpts
+        kpt_2d_2pixel_noise_all_kpts = kpt_2d_gt.copy()
+        kpt_2d_2pixel_noise_all_kpts = kpt_2d_2pixel_noise_all_kpts + random.choice([-2, 2])
+        pose_pred_2pixel_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_2pixel_noise_all_kpts, K)
+        experiment_name9 = "adding ±2 pixel noise to x(or y) coordinates of all keypoints, same noise pattern for all kpts"
+        self.add_to_ablation_study_pose_list(experiment_name9, pose_pred_2pixel_noise_all_kpts, pose_gt)
+
+        # 10. 1-pixel-all-keypoints noise, different noise patterns for different kpts
+        kpt_2d_1pixel_diff_noise_all_kpts = kpt_2d_gt.copy()
+        for i in range(len(kpt_2d_1pixel_noise_all_kpts)):
+            random_x_or_y = random.randint(0, 1)
+            kpt_2d_1pixel_diff_noise_all_kpts[i][random_x_or_y] = apply_random_noise(kpt_2d_1pixel_diff_noise_all_kpts[i][random_x_or_y], 1)
+        pose_pred_1pixel_diff_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_1pixel_diff_noise_all_kpts, K)
+        experiment_name10 = "adding ±1 pixel noise to x(or y) coordinates of all keypoints, different noise pattern for different kpts"
+        self.add_to_ablation_study_pose_list(experiment_name10, pose_pred_1pixel_diff_noise_all_kpts, pose_gt)
+
+        # 11. 2-pixel-all-keypoints noise, different noise patterns for different kpts
+        kpt_2d_2pixel_diff_noise_all_kpts = kpt_2d_gt.copy()
+        for i in range(len(kpt_2d_1pixel_noise_all_kpts)):
+            random_x_or_y = random.randint(0, 1)
+            kpt_2d_2pixel_diff_noise_all_kpts[i][random_x_or_y] = apply_random_noise(kpt_2d_2pixel_diff_noise_all_kpts[i][random_x_or_y], 2)
+        pose_pred_2pixel_diff_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_2pixel_diff_noise_all_kpts, K)
+        experiment_name11 = "adding ±2 pixel noise to x(or y) coordinates of all keypoints, different noise pattern for different kpts"
+        self.add_to_ablation_study_pose_list(experiment_name11, pose_pred_2pixel_diff_noise_all_kpts, pose_gt)
+
+        # 12. 3-pixel-all-keypoints noise, different noise patterns for different kpts
+        kpt_2d_3pixel_diff_noise_all_kpts = kpt_2d_gt.copy()
+        for i in range(len(kpt_2d_1pixel_noise_all_kpts)):
+            random_x_or_y = random.randint(0, 1)
+            kpt_2d_3pixel_diff_noise_all_kpts[i][random_x_or_y] = apply_random_noise(kpt_2d_3pixel_diff_noise_all_kpts[i][random_x_or_y], 3)
+        pose_pred_3pixel_diff_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_3pixel_diff_noise_all_kpts, K)
+        experiment_name12 = "adding ±3 pixel noise to x(or y) coordinates of all keypoints, different noise pattern for different kpts"
+        self.add_to_ablation_study_pose_list(experiment_name12, pose_pred_3pixel_diff_noise_all_kpts, pose_gt)
+
+        # 13. 4-pixel-all-keypoints noise, different noise patterns for different kpts
+        kpt_2d_4pixel_diff_noise_all_kpts = kpt_2d_gt.copy()
+        for i in range(len(kpt_2d_1pixel_noise_all_kpts)):
+            random_x_or_y = random.randint(0, 1)
+            kpt_2d_4pixel_diff_noise_all_kpts[i][random_x_or_y] = apply_random_noise(kpt_2d_4pixel_diff_noise_all_kpts[i][random_x_or_y], 4)
+        pose_pred_4pixel_diff_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_4pixel_diff_noise_all_kpts, K)
+        experiment_name13 = "adding ±4 pixel noise to x(or y) coordinates of all keypoints, different noise pattern for different kpts"
+        self.add_to_ablation_study_pose_list(experiment_name13, pose_pred_4pixel_diff_noise_all_kpts, pose_gt)
+
+        # 14. 5-pixel-all-keypoints noise, different noise patterns for different kpts
+        kpt_2d_5pixel_diff_noise_all_kpts = kpt_2d_gt.copy()
+        for i in range(len(kpt_2d_1pixel_noise_all_kpts)):
+            random_x_or_y = random.randint(0, 1)
+            kpt_2d_5pixel_diff_noise_all_kpts[i][random_x_or_y] = apply_random_noise(kpt_2d_5pixel_diff_noise_all_kpts[i][random_x_or_y], 5)
+        pose_pred_5pixel_diff_noise_all_kpts = pvnet_pose_utils.pnp(kpt_3d, kpt_2d_5pixel_diff_noise_all_kpts, K)
+        experiment_name14 = "adding ±5 pixel noise to x(or y) coordinates of all keypoints, different noise pattern for different kpts"
+        self.add_to_ablation_study_pose_list(experiment_name14, pose_pred_5pixel_diff_noise_all_kpts, pose_gt)
 
     def summarize_abalation_study_result(self):
         for experiment_name, pose_list in self.ablation_study_pose_list.items():
@@ -253,6 +383,13 @@ class Evaluator:
             print('Angular Error (rotation)  : {:.2f} deg, std {:.2f}'.format(angular_error_mean, angular_error_std))
 
     def summarize(self):
+        print("="*100)
+        print("Statistic of dataset scene:")
+        mean_object_2_camera_dis = np.mean([T[2, 3] for T in self.T_gt])
+        print('Average distance between object and camera: {:.2f} m'.format(mean_object_2_camera_dis))
+        print('Max Eulidean distance between two keypoints: {:.2f} pixels'.format(self.max_euclidean_dis_bewteen_kpts))
+        print('Min Eulidean distance between two keypoints: {:.2f} pixels'.format(self.min_euclidean_dis_bewteen_kpts))
+
         proj2d = np.mean(self.proj2d)
         add = np.mean(self.add)
         cmd5 = np.mean(self.cmd5)
@@ -266,7 +403,6 @@ class Evaluator:
         # angular_quat_std = np.std(self.angular_quaternion_err)
         angular_rotation = np.mean(self.angular_rotation_err)
         angular_rotation_std = np.std(self.angular_rotation_err)
-
 
         kpt_prediction_err = np.mean(self.avg_2d_kpts_error)
         kpt_prediction_std = np.std(self.avg_2d_kpts_error)
