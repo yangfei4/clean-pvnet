@@ -49,11 +49,15 @@ def construct_T_stable_from_T_est(T_est, cls: int):
     alpha_sta = Rotation.from_matrix(R_sta).as_euler('xyz', degrees=True)[0]
 
     index = np.where(alphas == int(alpha_sta))[0]
-    z_offset_sta = z_offsets[index]
 
-    t_sta = np.array([T_est[0,3], T_est[1,3], z_offset_sta], dtype=object)
-    T_sta = construct_T(R_sta, t_sta)
-    return T_sta
+    if len(index) == 0:
+        print("Fail to find closest stable pose!")
+        return T_est
+    else:
+        z_offset_sta = z_offsets[index]
+        t_sta = np.array([T_est[0,3], T_est[1,3], z_offset_sta], dtype=float)
+        T_sta = construct_T(R_sta, t_sta)
+        return T_sta
 
 
 ######################################
@@ -64,11 +68,13 @@ def construct_T_stable_from_T_est(T_est, cls: int):
 # i.e. alphas[i] should correspond to z_offsets[i]
 alphas_mainshell  = np.array([0, 180])
 alphas_topshell   = np.array([0, 148, 180])
-alphas_insertmold = np.array([0, 12, 156])
+alphas_insertmold = np.array([0, 12, 156, -90, -146])
+# alphas_insertmold = np.array([0, 12, 156]) # For real data.
 
 z_offsets_mainshell  = np.array([0.0015, 0.0015])
 z_offsets_topshell   = np.array([0.0022, 0.0026, 0.0022])
-z_offsets_insertmold = np.array([0.0021, 0.0019, 0.0013])
+z_offsets_insertmold = np.array([0.0021, 0.0019, 0.0013, 0.0013, 0.0013])
+# z_offsets_insertmold = np.array([0.0021, 0.0019, 0.0013]) # For real data.
 
 cls_alpha_zoffset_map = {0: ("mainshell" , alphas_mainshell , z_offsets_mainshell),
                          1: ("topshell"  , alphas_topshell  , z_offsets_topshell),
