@@ -13,3 +13,4 @@ pvnet_ros_ws/
 build/
 devel/
 src/
+lib/csrc/
