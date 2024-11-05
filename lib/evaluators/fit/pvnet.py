@@ -62,6 +62,8 @@ class Evaluator:
         # key: String - experiment_name
         # value: pose_list[nx2x3x4], pose_list[i][0] is ground truth pose, pose_list[i][1] is calculated pose
 
+        self.valid_data_cnt = 0
+
         self.max_euclidean_dis_bewteen_kpts = -np.inf
         self.min_euclidean_dis_bewteen_kpts = np.inf
 
@@ -69,7 +71,7 @@ class Evaluator:
         error = np.linalg.norm(kpt_pred - kpt_gt) / np.sqrt(len(kpt_pred))
         self.avg_2d_kpts_error.append(error)
 
-    def average_error(self, pose_pre, pose_gt):
+    def add_to_eval_list(self, pose_pre, pose_gt):
         self.T_gt.append(pose_gt)
         self.T_pre.append(pose_pre)
 
@@ -78,7 +80,6 @@ class Evaluator:
         translation_error = np.abs(t_pre - t_gt)
         # if(translation_error[2] > 10): # outliers, error > 100m
         #     return
-        self.trans_err.append(translation_error)
         
         R_pre_in_world = pose_pre[:, :3]
         R_gt_in_world = pose_gt[:, :3]
@@ -87,6 +88,12 @@ class Evaluator:
         trace = trace if trace <= 3 else 3
         trace = trace if trace >= -1 else -1
         angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+
+        if(angular_distance > 10): #if theta>10 deg, consider is as an outlier and exclude it
+            return
+        
+        self.valid_data_cnt += 1
+        self.trans_err.append(translation_error)
         self.angular_rotation_err.append(angular_distance)
 
     def projection_2d(self, pose_pred, pose_targets, K, threshold=5):
@@ -203,7 +210,7 @@ class Evaluator:
             self.add_metric(pose_pred, pose_gt)
         self.cm_degree_5_metric(pose_pred, pose_gt)
         self.mask_iou(output, batch)
-        self.average_error(pose_pred, pose_gt)
+        self.add_to_eval_list(pose_pred, pose_gt)
         self.quaternion_angular_err(pose_pred, pose_gt)
         kpt_pred = output['kpt_2d'].squeeze().cpu().numpy()
         kpt_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
@@ -224,8 +231,8 @@ class Evaluator:
             T_stable_in_cam[0][3] = T_pred_in_cam[0][3]
             T_stable_in_cam[1][3] = T_pred_in_cam[1][3]
             refinement_experiment_name = "pose estimation with stable-pose refinement"
-            self.add_to_ablation_study_pose_list(refinement_experiment_name, T_stable_in_cam[:3], pose_gt)
-
+            self.add_to_ablation_study_pose_list(refinement_experiment_name, T_stable_in_cam[:3], np.array(anno['pose']))
+        
         # 3. GT keypoints
         kpt_2d_gt = np.concatenate([anno['fps_2d'], [anno['center_2d']]], axis=0)
 
@@ -356,7 +363,6 @@ class Evaluator:
                 t_pre = pose_pre[:, 3]
                 t_gt = pose_gt[:, 3]
                 translation_error = np.abs(t_pre - t_gt)
-                trans_err_all.append(translation_error)
                 
                 R_pre_in_world = pose_pre[:, :3]
                 R_gt_in_world = pose_gt[:, :3]
@@ -364,6 +370,9 @@ class Evaluator:
                 trace = np.trace(R_pre_2_gt)
                 trace = min(3, max(-1, trace))
                 angular_distance = np.rad2deg(np.arccos((trace - 1.) / 2.))
+                if(angular_distance > 10): #if theta>10 deg, consider it as outlier
+                    continue
+                trans_err_all.append(translation_error)
                 angular_err_all.append(angular_distance)
             
             trans_err_all = np.array(trans_err_all) * 1000 # m to mm
@@ -384,6 +393,7 @@ class Evaluator:
 
     def summarize(self):
         print("="*100)
+        print("Valid data cnt (after eliminating the outliers): {}".format(self.valid_data_cnt))
         print("Statistic of dataset scene:")
         mean_object_2_camera_dis = np.mean([T[2, 3] for T in self.T_gt])
         print('Average distance between object and camera: {:.2f} m'.format(mean_object_2_camera_dis))
@@ -414,7 +424,6 @@ class Evaluator:
         print('ADD metric: {:.3f}'.format(add))
         print('5 cm 5 degree metric: {:.3f}'.format(cmd5))
         print('mask ap90: {:.3f}'.format(ap))
-
         print('Translation Error (X-axis): {:.2f} mm, std {:.2f}'.format(trans_err[0], trans_std[0]))
         print('Translation Error (Y-axis): {:.2f} mm, std {:.2f}'.format(trans_err[1], trans_std[1]))
         print('Translation Error (Z-axis): {:.2f} mm, std {:.2f}'.format(trans_err[2], trans_std[2]))
